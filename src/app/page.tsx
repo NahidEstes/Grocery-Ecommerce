@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HomeExtras } from "@/components/storefront-extras";
 import { ArrowRight, Leaf, ShieldCheck, Truck } from "lucide-react";
 import { loadCatalog } from "@/lib/api";
 import {
@@ -135,6 +136,7 @@ export default async function HomePage() {
           </div>
         </div>
       </div>
+      <HomeExtras />
       <Benefits />
       <section className="fresh-note">
         <div>

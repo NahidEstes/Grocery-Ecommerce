@@ -11,6 +11,20 @@ export type Product = {
   description: string;
   organic?: boolean;
   rating: number;
+  parentId?: string;
+  brand?: string;
+  dietary?: string[];
+  measure?: number;
+  measureUnit?: "kg" | "litre" | "piece";
+  origin?: string;
+  nutrition?: string;
+  allergens?: string;
+  storage?: string;
+  imageUrl?: string;
+  seasonal?: boolean;
+  active?: boolean;
+  createdAt?: string;
+  version?: number;
 };
 
 export const products: Product[] = [
@@ -216,7 +230,49 @@ export const categories = [
   { slug: "pets", name: "Pet Care", icon: "paw", color: "#e17730" },
 ];
 
+// Sample SKUs: supplier-specific facts stay empty until entered by the store.
+const measures: Record<string, [number, "kg" | "litre" | "piece"]> = {
+  banana: [1, "kg"],
+  apple: [1, "kg"],
+  tomato: [0.5, "kg"],
+  carrot: [0.5, "kg"],
+  broccoli: [0.5, "kg"],
+  orange: [1, "kg"],
+  cucumber: [0.5, "kg"],
+  potato: [1, "kg"],
+  milk: [1, "litre"],
+  bread: [0.4, "kg"],
+  eggs: [6, "piece"],
+  oil: [1, "litre"],
+};
+for (const p of products) {
+  p.rating = 0;
+  p.brand = "Unspecified";
+  const m = measures[p.id];
+  if (m) {
+    p.measure = m[0];
+    p.measureUnit = m[1];
+  }
+}
+for (const id of ["apple", "banana", "tomato", "carrot"]) {
+  const base = products.find((p) => p.id === id)!;
+  const factor = base.measure === 1 ? 0.5 : 2;
+  products.push({
+    ...base,
+    id: `${id}-${factor === 0.5 ? "500g" : "1kg"}`,
+    slug: `${base.slug}-${factor === 0.5 ? "500g" : "1kg"}`,
+    parentId: base.id,
+    unit: factor === 0.5 ? "500 g" : "1 kg",
+    price: base.price * factor,
+    originalPrice: base.originalPrice ? base.originalPrice * factor : undefined,
+    measure: base.measure! * factor,
+  });
+}
 export type CatalogFilters = {
+  brand?: string;
+  dietary?: string;
+  pack?: string;
+  includeVariants?: boolean;
   q?: string;
   category?: string;
   organic?: boolean;
@@ -233,6 +289,11 @@ export function filterProducts(
   const query = (filters.q || "").trim().toLowerCase();
   let result = catalog.filter(
     (p) =>
+      p.active !== false &&
+      (filters.includeVariants || !p.parentId || !!filters.pack) &&
+      (!filters.brand || p.brand === filters.brand) &&
+      (!filters.dietary || p.dietary?.includes(filters.dietary)) &&
+      (!filters.pack || p.unit === filters.pack) &&
       (!query || `${p.name} ${p.description}`.toLowerCase().includes(query)) &&
       (!filters.category ||
         filters.category === "all" ||

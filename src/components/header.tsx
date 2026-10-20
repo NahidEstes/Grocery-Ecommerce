@@ -10,6 +10,7 @@ import {
   Search,
   ShoppingBag,
   ShoppingCart,
+  Package,
   UserRound,
   X,
 } from "lucide-react";
@@ -17,6 +18,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { cartTotals, money } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
 import { CategorySidebar, Modal } from "./ui";
+import { useAccount } from "./account-provider";
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="FreshCart home">
@@ -34,7 +36,8 @@ export function Brand() {
   );
 }
 export function Header() {
-  const { items, catalog, area, setArea, saved } = useShop();
+  const { user } = useAccount();
+  const { items, catalog, area, setArea, saved, settings } = useShop();
   const [locationOpen, setLocationOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -55,8 +58,8 @@ export function Header() {
           <Leaf size={12} />A fresher everyday starts here
         </span>
         <span>
-          Free delivery on orders of ৳1,000+
-          <span className="announcement-dot">•</span>Same-day delivery in Dhaka
+          Free delivery on orders of {money(settings.freeDeliveryAt)}+
+          <span className="announcement-dot">•</span>Choose your delivery slot
         </span>
       </div>
       <header className="header">
@@ -103,8 +106,10 @@ export function Header() {
             >
               <UserRound size={26} />
               <span>
-                <strong>My Account</strong>
-                <small>Your shopping space</small>
+                <strong>{user ? user.name.split(" ")[0] : "My Account"}</strong>
+                <small>
+                  {user ? "Your shopping space" : "Sign in / Register"}
+                </small>
               </span>
               <ChevronDown size={12} />
             </button>
@@ -117,7 +122,20 @@ export function Header() {
                 />
                 <div className="account-popover">
                   <strong>Make yourself at home</strong>
-                  <p>Your favourites and basket, saved on this device.</p>
+                  <p>
+                    {user
+                      ? "Your groceries and orders, together."
+                      : "Sign in to save addresses and orders across devices."}
+                  </p>
+                  <Link href="/account" onClick={() => setAccountOpen(false)}>
+                    <UserRound size={17} />
+                    {user ? "Manage account" : "Sign in / Create account"}
+                  </Link>
+                  {user?.role === "admin" && (
+                    <Link href="/admin" onClick={() => setAccountOpen(false)}>
+                      Admin dashboard
+                    </Link>
+                  )}
                   <Link
                     href="/products?saved=true"
                     onClick={() => setAccountOpen(false)}
@@ -128,6 +146,10 @@ export function Header() {
                   <Link href="/cart" onClick={() => setAccountOpen(false)}>
                     <ShoppingCart size={17} />
                     My shopping cart<span>{count}</span>
+                  </Link>
+                  <Link href="/orders" onClick={() => setAccountOpen(false)}>
+                    <Package size={17} />
+                    My orders
                   </Link>
                 </div>
               </>
@@ -158,23 +180,26 @@ export function Header() {
             Choose your area for fresh groceries, delivered to your door.
           </p>
           <div className="area-options">
-            {["Dhanmondi", "Mirpur", "Uttara", "Gulshan"].map((option) => (
-              <button
-                key={option}
-                className={area === option ? "selected" : ""}
-                onClick={() => {
-                  setArea(option);
-                  setLocationOpen(false);
-                }}
-              >
-                <MapPin size={20} />
-                <span>
-                  <strong>{option}</strong>
-                  <small>Dhaka · Same-day delivery</small>
-                </span>
-                {area === option && <span className="area-check">✓</span>}
-              </button>
-            ))}
+            {settings.zones
+              .filter((z) => z.enabled)
+              .map((z) => z.name)
+              .map((option) => (
+                <button
+                  key={option}
+                  className={area === option ? "selected" : ""}
+                  onClick={() => {
+                    setArea(option);
+                    setLocationOpen(false);
+                  }}
+                >
+                  <MapPin size={20} />
+                  <span>
+                    <strong>{option}</strong>
+                    <small>Dhaka · Delivery slots at checkout</small>
+                  </span>
+                  {area === option && <span className="area-check">✓</span>}
+                </button>
+              ))}
           </div>
         </Modal>
       )}

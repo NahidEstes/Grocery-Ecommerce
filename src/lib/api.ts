@@ -2,7 +2,7 @@ import { products, type Product } from "./catalog";
 export async function loadCatalog(): Promise<Product[]> {
   try {
     const response = await fetch(
-      `${process.env.API_URL || "http://127.0.0.1:4100"}/api/products?limit=48`,
+      `${process.env.API_URL || "http://127.0.0.1:4100"}/api/catalog`,
       { cache: "no-store", signal: AbortSignal.timeout(3000) },
     );
     if (

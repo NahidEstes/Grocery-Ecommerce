@@ -21,5 +21,5 @@ export default async function ProductPage({
   const { slug } = await params;
   const product = (await loadCatalog()).find((p) => p.slug === slug);
   if (!product) notFound();
-  return <ProductDetails product={product} />;
+  return <ProductDetails key={product.id} product={product} />;
 }

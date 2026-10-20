@@ -15,6 +15,8 @@ import { useState } from "react";
 import type { Product } from "@/lib/catalog";
 import { money } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
+import { unitPrice } from "@/lib/storefront";
+import { ProductReviews } from "./product-reviews";
 import {
   Benefits,
   Breadcrumb,
@@ -23,8 +25,35 @@ import {
   QuantityControl,
   SectionTitle,
 } from "./ui";
-export function ProductDetails({ product }: { product: Product }) {
-  const { catalog, addItem, saved, toggleSaved, area } = useShop();
+export function ProductDetails({
+  product: initialProduct,
+}: {
+  product: Product;
+}) {
+  const {
+    catalog,
+    addItem,
+    saved,
+    toggleSaved,
+    area,
+    reviews,
+    settings,
+    ready,
+  } = useShop();
+  const [selectedId, setSelectedId] = useState(initialProduct.id);
+  const product = catalog.find((p) => p.id === selectedId) || initialProduct;
+  const familyId = initialProduct.parentId || initialProduct.id;
+  const variants = catalog.filter(
+    (p) => (p.id === familyId || p.parentId === familyId) && p.active !== false,
+  );
+  const productReviews = reviews.filter((r) =>
+    variants.some((v) => v.id === r.productId),
+  );
+  const average = productReviews.length
+    ? (
+        productReviews.reduce((s, r) => s + r.rating, 0) / productReviews.length
+      ).toFixed(1)
+    : null;
   const [quantity, setQuantity] = useState(1);
   const [tab, setTab] = useState("Description");
   const [zoomed, setZoomed] = useState(false);
@@ -34,10 +63,12 @@ export function ProductDetails({ product }: { product: Product }) {
     : 0;
   const related = [
     ...catalog.filter(
-      (p) => p.id !== product.id && p.category === product.category,
+      (p) =>
+        !p.parentId && p.id !== familyId && p.category === product.category,
     ),
     ...catalog.filter(
-      (p) => p.id !== product.id && p.category !== product.category,
+      (p) =>
+        !p.parentId && p.id !== familyId && p.category !== product.category,
     ),
   ].slice(0, 4);
   return (
@@ -99,12 +130,15 @@ export function ProductDetails({ product }: { product: Product }) {
           <div className="product-rating">
             <span>
               <Star size={17} fill="currentColor" />
-              {product.rating} <small>Product rating</small>
+              {average || "No reviews yet"}{" "}
+              <small>
+                {average ? `${productReviews.length} verified reviews` : ""}
+              </small>
             </span>
             <i />
             <span className="in-stock">
               <Check size={13} />
-              In stock
+              {product.stock > 0 ? "In stock" : "Out of stock"}
             </span>
           </div>
           <p className="product-description">{product.description}</p>
@@ -115,13 +149,29 @@ export function ProductDetails({ product }: { product: Product }) {
               <span className="discount-badge">{discount}% OFF</span>
             )}
           </div>
+          {unitPrice(product) && (
+            <p className="unit-comparison">{unitPrice(product)}</p>
+          )}
           <div className="purchase-options">
             <label>
               Pack size
-              <span className="pack-size">
-                {product.unit}
-                <ChevronDown size={16} />
-              </span>
+              <select
+                className="pack-size"
+                aria-label="Pack size"
+                value={product.id}
+                onChange={(e) => {
+                  setSelectedId(e.target.value);
+                  setQuantity(1);
+                  setAdded(false);
+                }}
+              >
+                {variants.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.unit} · {money(v.price)}
+                    {v.stock < 1 ? " · Out of stock" : ""}
+                  </option>
+                ))}
+              </select>
             </label>
             <div>
               <label>Quantity</label>
@@ -136,7 +186,7 @@ export function ProductDetails({ product }: { product: Product }) {
           <div className="purchase-actions">
             <button
               className="button primary"
-              disabled={product.stock < 1}
+              disabled={!ready || product.stock < 1}
               onClick={() => {
                 addItem(product.id, quantity);
                 setAdded(true);
@@ -181,15 +231,15 @@ export function ProductDetails({ product }: { product: Product }) {
             <div>
               <Clock3 size={25} />
               <span>
-                <strong>Same-day delivery</strong>
-                <small>Order fresh. Enjoy it today.</small>
+                <strong>Choose your delivery slot</strong>
+                <small>Available times shown at checkout.</small>
               </span>
             </div>
             <div>
               <Truck size={25} />
               <span>
                 <strong>Free delivery</strong>
-                <small>On orders of ৳1,000+</small>
+                <small>On orders of {money(settings.freeDeliveryAt)}+</small>
               </span>
             </div>
             <div>
@@ -218,6 +268,19 @@ export function ProductDetails({ product }: { product: Product }) {
           </div>
         </aside>
       </section>
+      <div className="mobile-purchase-bar">
+        <span>
+          <strong>{money(product.price * quantity)}</strong>
+          <small>{product.unit}</small>
+        </span>
+        <button
+          className="button primary"
+          disabled={!ready || product.stock < 1}
+          onClick={() => addItem(product.id, quantity)}
+        >
+          <ShoppingCart size={18} /> Add to cart
+        </button>
+      </div>
       <section className="product-tabs">
         <div role="tablist" aria-label="Product information">
           {["Description", "Storage & care", "Details"].map((item) => (
@@ -247,11 +310,8 @@ export function ProductDetails({ product }: { product: Product }) {
             </p>
           ) : tab === "Storage & care" ? (
             <p>
-              {["dairy", "meat", "frozen"].includes(product.category)
-                ? "Keep refrigerated and follow the use-by date and storage instructions on the packaging."
-                : ["fruits", "vegetables"].includes(product.category)
-                  ? "Store in a cool place or refrigerate as appropriate. Wash fresh produce thoroughly before eating. Enjoy promptly for the best flavour."
-                  : "Store in a cool, dry place. Keep packaging sealed and follow the best-before date."}
+              {product.storage ||
+                "Supplier storage instructions have not been supplied. Check the product packaging before use."}
             </p>
           ) : (
             <dl>
@@ -261,16 +321,30 @@ export function ProductDetails({ product }: { product: Product }) {
               </div>
               <div>
                 <dt>Availability</dt>
-                <dd>In stock</dd>
+                <dd>{product.stock > 0 ? "In stock" : "Out of stock"}</dd>
               </div>
               <div>
                 <dt>Product code</dt>
                 <dd>FC-{product.id.toUpperCase()}</dd>
               </div>
+              {(
+                [
+                  ["Brand", product.brand],
+                  ["Origin", product.origin],
+                  ["Nutrition", product.nutrition],
+                  ["Allergens", product.allergens],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value || "Not supplied — check the packaging."}</dd>
+                </div>
+              ))}
             </dl>
           )}
         </div>
       </section>
+      <ProductReviews productIds={variants.map((v) => v.id)} />
       <SectionTitle
         title="You may also like"
         subtitle="A few more good things for your basket."

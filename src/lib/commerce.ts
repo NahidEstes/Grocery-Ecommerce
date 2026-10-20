@@ -1,28 +1,47 @@
 import type { Product } from "./catalog";
+import { defaultSettings, type StoreSettings } from "./storefront";
 export type CartItem = { productId: string; quantity: number };
 export const FREE_DELIVERY_AT = 1000;
 export const DELIVERY_FEE = 40;
-export const money = (value: number) => `৳ ${value.toLocaleString("en-BD")}`;
-export function cartTotals(items: CartItem[], catalog: Product[], promo = "") {
-  const subtotal = items.reduce(
-    (sum, item) =>
-      sum +
-      (catalog.find((p) => p.id === item.productId)?.price || 0) *
-        item.quantity,
-    0,
+export const money = (value: number) =>
+  `৳ ${value.toLocaleString("en-BD", { maximumFractionDigits: 2 })}`;
+export function cartTotals(
+  items: CartItem[],
+  catalog: Product[],
+  promo = "",
+  settings: StoreSettings = defaultSettings,
+  area = "Dhanmondi",
+) {
+  const subtotal =
+    Math.round(
+      100 *
+        items.reduce(
+          (sum, item) =>
+            sum +
+            (catalog.find((p) => p.id === item.productId)?.price || 0) *
+              item.quantity,
+          0,
+        ),
+    ) / 100;
+  const promotion = settings.promos.find(
+    (p) => p.active && p.code === promo.toUpperCase(),
   );
-  const discount =
-    promo.toUpperCase() === "FRESH10"
-      ? Math.min(100, Math.round(subtotal * 0.1))
-      : 0;
+  const discount = promotion
+    ? Math.min(
+        promotion.maxDiscount,
+        Math.round((subtotal * promotion.percent) / 100),
+      )
+    : 0;
   const delivery =
-    subtotal === 0 || subtotal >= FREE_DELIVERY_AT ? 0 : DELIVERY_FEE;
+    subtotal === 0 || subtotal >= settings.freeDeliveryAt
+      ? 0
+      : (settings.zones.find((z) => z.name === area)?.fee ?? DELIVERY_FEE);
   return {
     subtotal,
     discount,
     delivery,
     total: subtotal - discount + delivery,
-    remaining: Math.max(0, FREE_DELIVERY_AT - subtotal),
+    remaining: Math.max(0, settings.freeDeliveryAt - subtotal),
   };
 }
 export function sanitizeCart(input: unknown, catalog: Product[]): CartItem[] {
@@ -31,7 +50,8 @@ export function sanitizeCart(input: unknown, catalog: Product[]): CartItem[] {
   for (const item of input) {
     if (!item || typeof item !== "object") continue;
     const product = catalog.find((p) => p.id === item.productId);
-    if (!product || !Number.isFinite(item.quantity)) continue;
+    if (!product || product.active === false || !Number.isFinite(item.quantity))
+      continue;
     const quantity = Math.max(
       0,
       Math.min(product.stock, Math.floor(item.quantity)),

@@ -9,15 +9,22 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useRef, useTransition, useState } from "react";
 import { categories, filterProducts } from "@/lib/catalog";
 import { useShop } from "./shop-provider";
-import { Benefits, Breadcrumb, CategorySidebar, ProductCard } from "./ui";
+import {
+  Benefits,
+  Breadcrumb,
+  CategorySidebar,
+  ProductCard,
+  Modal,
+} from "./ui";
 
 export function ProductListing() {
   const params = useSearchParams();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const latestQuery = useRef(params.toString());
   useEffect(() => {
     if (!pending) latestQuery.current = params.toString();
@@ -31,6 +38,9 @@ export function ProductListing() {
   const sort = params.get("sort") || "featured";
   const maxPrice = params.get("maxPrice");
   const page = Number(params.get("page")) || 1;
+  const brand = params.get("brand") || "",
+    dietary = params.get("dietary") || "",
+    pack = params.get("pack") || "";
   const baseCatalog = savedOnly
     ? catalog.filter((p) => saved.includes(p.id))
     : catalog;
@@ -43,6 +53,10 @@ export function ProductListing() {
     maxPrice: maxPrice ? Number(maxPrice) : undefined,
     page,
     limit: 8,
+    includeVariants: savedOnly,
+    brand,
+    dietary,
+    pack,
   });
   const categoryName =
     categories.find((c) => c.slug === category)?.name ||
@@ -70,6 +84,61 @@ export function ProductListing() {
       router.push(`/products${next.size ? `?${next}` : ""}`, { scroll: false }),
     );
   }
+  const facets = (
+    <div className="facet-fields">
+      {[
+        {
+          key: "brand",
+          label: "Brand",
+          value: brand,
+          options: [
+            ...new Set(
+              catalog
+                .filter((p) => p.active !== false)
+                .map((p) => p.brand)
+                .filter((v): v is string => !!v),
+            ),
+          ],
+        },
+        {
+          key: "dietary",
+          label: "Dietary preference",
+          value: dietary,
+          options: [...new Set(catalog.flatMap((p) => p.dietary || []))],
+        },
+        {
+          key: "pack",
+          label: "Pack size",
+          value: pack,
+          options: [
+            ...new Set(
+              catalog.filter((p) => p.active !== false).map((p) => p.unit),
+            ),
+          ],
+        },
+      ].map((f) => (
+        <label key={f.key}>
+          {f.label}
+          <select
+            value={f.value}
+            onChange={(e) => update({ [f.key]: e.target.value || null })}
+          >
+            <option value="">All {f.label.toLowerCase()} options</option>
+            {f.options.map((v) => (
+              <option key={v}>{v}</option>
+            ))}
+          </select>
+        </label>
+      ))}
+      <Link
+        className="text-button"
+        href="/products"
+        onClick={() => setFiltersOpen(false)}
+      >
+        Clear all filters
+      </Link>
+    </div>
+  );
   return (
     <div className="page-container listing-page">
       <div className="shop-layout">
@@ -181,7 +250,37 @@ export function ProductListing() {
               </label>
             </div>
           </div>
-          {(offers || query || maxPrice || savedOnly) && (
+          <div className="desktop-facets">{facets}</div>
+          <button
+            className="button outline mobile-filter-trigger"
+            onClick={() => setFiltersOpen(true)}
+          >
+            <SlidersHorizontal size={17} /> More filters{" "}
+            {[brand, dietary, pack].filter(Boolean).length || ""}
+          </button>
+          {filtersOpen && (
+            <Modal
+              title="Filter groceries"
+              onClose={() => setFiltersOpen(false)}
+            >
+              {facets}
+              <button
+                className="button primary"
+                onClick={() => setFiltersOpen(false)}
+              >
+                Show {result.total} products
+              </button>
+            </Modal>
+          )}
+          {(offers ||
+            query ||
+            maxPrice ||
+            savedOnly ||
+            brand ||
+            dietary ||
+            pack ||
+            organic ||
+            category) && (
             <div className="active-filters">
               {offers && (
                 <button onClick={() => update({ offers: null })}>
@@ -208,6 +307,11 @@ export function ProductListing() {
                 </button>
               )}
               <Link href="/products">Clear all</Link>
+              {[brand, dietary, pack].filter(Boolean).map((v) => (
+                <span className="filter-chip" key={v}>
+                  {v}
+                </span>
+              ))}
             </div>
           )}
           <div

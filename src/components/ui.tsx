@@ -27,6 +27,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { categories, type Product } from "@/lib/catalog";
 import { money } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
+import { unitPrice } from "@/lib/storefront";
 
 const icons: Record<string, typeof Leaf> = {
   leaf: Leaf,
@@ -43,6 +44,7 @@ const icons: Record<string, typeof Leaf> = {
   paw: PawPrint,
 };
 export function CategorySidebar({ active = "" }: { active?: string }) {
+  const { settings } = useShop();
   return (
     <aside className="category-sidebar" aria-label="Grocery categories">
       <Link href="/products" className="all-categories">
@@ -50,8 +52,9 @@ export function CategorySidebar({ active = "" }: { active?: string }) {
         All Categories
       </Link>
       <nav>
-        {categories.map((category) => {
-          const Icon = icons[category.icon];
+        {settings.categories.map((category) => {
+          const info = categories.find((c) => c.slug === category.slug);
+          const Icon = icons[info?.icon || "leaf"];
           return (
             <Link
               key={category.slug}
@@ -62,7 +65,11 @@ export function CategorySidebar({ active = "" }: { active?: string }) {
                   : "category-link"
               }
             >
-              <Icon size={21} color={category.color} strokeWidth={2.1} />
+              <Icon
+                size={21}
+                color={info?.color || "#358830"}
+                strokeWidth={2.1}
+              />
               <span>{category.name}</span>
               <ChevronRight size={14} />
             </Link>
@@ -95,8 +102,20 @@ export function ProductImage({
       aria-label={product.name}
       className={`product-image ${className}`}
       style={{
-        backgroundPosition: `${((product.atlas % 4) * 100) / 3}% ${row === 2 ? 96 : row * 50}%`,
-        clipPath: row === 1 ? "inset(0 0 8% 0)" : undefined,
+        ...(product.imageUrl
+          ? {
+              backgroundImage: `url("${product.imageUrl}")`,
+              backgroundSize: "contain",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center",
+            }
+          : {}),
+        ...(!product.imageUrl
+          ? {
+              backgroundPosition: `${((product.atlas % 4) * 100) / 3}% ${row === 2 ? 96 : row * 50}%`,
+              clipPath: row === 1 ? "inset(0 0 8% 0)" : undefined,
+            }
+          : {}),
       }}
     />
   );
@@ -140,7 +159,7 @@ export function QuantityControl({
   );
 }
 export function ProductCard({ product }: { product: Product }) {
-  const { items, addItem, setQuantity, saved, toggleSaved } = useShop();
+  const { items, addItem, setQuantity, saved, toggleSaved, ready } = useShop();
   const quantity =
     items.find((item) => item.productId === product.id)?.quantity || 0;
   const discount = product.originalPrice
@@ -174,6 +193,9 @@ export function ProductCard({ product }: { product: Product }) {
         {product.name}
       </Link>
       <p className="product-unit">{product.unit}</p>
+      {unitPrice(product) && (
+        <small className="unit-comparison">{unitPrice(product)}</small>
+      )}
       <div className="product-card-bottom">
         <div className="product-prices">
           <strong>{money(product.price)}</strong>
@@ -190,6 +212,7 @@ export function ProductCard({ product }: { product: Product }) {
         ) : (
           <button
             className="add-product"
+            disabled={!ready || product.stock < 1 || product.active === false}
             onClick={() => addItem(product.id)}
             aria-label={`Add ${product.name} to cart`}
           >
@@ -197,18 +220,24 @@ export function ProductCard({ product }: { product: Product }) {
           </button>
         )}
       </div>
+      {product.stock < 1 && <small className="form-error">Out of stock</small>}
     </article>
   );
 }
 export function Benefits() {
+  const { settings } = useShop();
   return (
     <section className="benefits" aria-label="Shopping benefits">
       {[
-        { icon: Truck, title: "Free delivery", text: "On orders of ৳1,000+" },
+        {
+          icon: Truck,
+          title: "Free delivery",
+          text: `On orders of ${money(settings.freeDeliveryAt)}+`,
+        },
         {
           icon: PackageCheck,
-          title: "Same-day delivery",
-          text: "Freshness at your doorstep",
+          title: "Flexible delivery slots",
+          text: "Choose an available time",
         },
         {
           icon: Leaf,

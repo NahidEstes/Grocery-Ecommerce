@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  CircleCheck,
   CreditCard,
   Leaf,
   LockKeyhole,
@@ -19,33 +18,60 @@ import { useShop } from "./shop-provider";
 import {
   Benefits,
   Breadcrumb,
-  Modal,
   ProductCard,
   ProductImage,
   QuantityControl,
   SectionTitle,
 } from "./ui";
+import { CheckoutSteps } from "./order-ui";
 
 export function CartPage() {
-  const { items, catalog, ready, setQuantity, area, clearCart, notify } =
-    useShop();
+  const {
+    items,
+    catalog,
+    ready,
+    setQuantity,
+    notify,
+    promoCode: promo,
+    setPromoCode: setPromo,
+    settings,
+    area,
+  } = useShop();
   const [promoInput, setPromoInput] = useState("");
-  const [promo, setPromo] = useState("");
+  useEffect(() => {
+    setPromoInput(promo);
+  }, [promo]);
   const [promoError, setPromoError] = useState("");
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const totals = cartTotals(items, catalog, promo);
+  const totals = cartTotals(items, catalog, promo, settings, area);
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const suggestions = catalog
-    .filter((p) => !items.some((item) => item.productId === p.id))
-    .slice(-3);
+    .filter(
+      (p) =>
+        !p.parentId &&
+        p.active !== false &&
+        p.stock > 0 &&
+        !items.some((item) => item.productId === p.id),
+    )
+    .sort((a, b) => {
+      const relevant = ["bread", "milk", "eggs"].some((id) =>
+        items.some((i) => i.productId === id),
+      )
+        ? ["eggs", "milk", "bread", "banana"]
+        : ["potato", "tomato", "carrot", "oil"];
+      const rank = (id: string) =>
+        relevant.includes(id) ? relevant.indexOf(id) : 99;
+      return rank(a.id) - rank(b.id);
+    })
+    .slice(0, 3);
   function applyPromo(event: FormEvent) {
     event.preventDefault();
-    if (promoInput.trim().toUpperCase() === "FRESH10") {
-      setPromo("FRESH10");
+    const code = promoInput.trim().toUpperCase();
+    if (settings.promos.some((p) => p.active && p.code === code)) {
+      setPromo(code);
       setPromoError("");
-      notify("Fresh10 applied. A little extra goodness!");
+      notify(`${code} applied. A little extra goodness!`);
     } else {
-      setPromoError("Try FRESH10 for 10% off, up to ৳100.");
+      setPromoError("This promo code is not available.");
     }
   }
   return (
@@ -60,19 +86,7 @@ export function CartPage() {
             {count} {count === 1 ? "item" : "items"} in your cart
           </p>
         </div>
-        <div className="checkout-steps">
-          <span className="active">
-            <i>1</i>Cart
-          </span>
-          <b />
-          <span>
-            <i>2</i>Checkout
-          </span>
-          <b />
-          <span>
-            <i>3</i>Confirmation
-          </span>
-        </div>
+        <CheckoutSteps step={1} />
       </div>
       {!ready ? (
         <div className="loading-state">Getting your basket ready…</div>
@@ -153,12 +167,14 @@ export function CartPage() {
                   <div className="progress-track">
                     <span
                       style={{
-                        width: `${Math.min(100, (totals.subtotal / FREE_DELIVERY_AT) * 100)}%`,
+                        width: `${Math.min(100, (totals.subtotal / settings.freeDeliveryAt) * 100)}%`,
                       }}
                     />
                   </div>
                 </div>
-                <small>{money(totals.subtotal)} / ৳1,000</small>
+                <small>
+                  {money(totals.subtotal)} / {money(settings.freeDeliveryAt)}
+                </small>
               </div>
             </section>
             <aside className="order-summary">
@@ -181,7 +197,7 @@ export function CartPage() {
                 {totals.discount > 0 && (
                   <div className="discount-line">
                     <dt>
-                      Fresh10 discount
+                      {promo} discount
                       <button
                         className="text-button"
                         onClick={() => {
@@ -222,17 +238,23 @@ export function CartPage() {
                 >
                   {promoError ||
                     (promo
-                      ? "FRESH10 applied — enjoy your savings."
-                      : "A fresh little treat: use FRESH10 for 10% off.")}
+                      ? `${promo} applied — enjoy your savings.`
+                      : settings.promos.some((p) => p.active)
+                        ? `Available code: ${settings.promos.find((p) => p.active)!.code}`
+                        : "Enter a valid store promo code.")}
                 </small>
               </form>
-              <button
+              <Link
                 className="button primary checkout-button"
-                onClick={() => setCheckoutOpen(true)}
+                href={
+                  promo
+                    ? `/checkout?promo=${encodeURIComponent(promo)}`
+                    : "/checkout"
+                }
               >
                 Proceed to checkout
                 <ArrowRight size={19} />
-              </button>
+              </Link>
               <div className="secure-payments">
                 <span>
                   <LockKeyhole size={13} />
@@ -272,177 +294,6 @@ export function CartPage() {
         ))}
       </div>
       <Benefits />
-      {checkoutOpen && (
-        <CheckoutModal
-          promo={promo}
-          area={area}
-          total={totals.total}
-          onClose={() => setCheckoutOpen(false)}
-          onSuccess={clearCart}
-        />
-      )}
     </div>
-  );
-}
-
-function CheckoutModal({
-  promo,
-  area,
-  total,
-  onClose,
-  onSuccess,
-}: {
-  promo: string;
-  area: string;
-  total: number;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  const { items } = useShop();
-  const [mode, setMode] = useState("demo");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [confirmation, setConfirmation] = useState<{
-    reference: string;
-    total: number;
-    message: string;
-  } | null>(null);
-  useEffect(() => {
-    fetch("/api/health")
-      .then((response) => response.json())
-      .then((data) => setMode(data.storage))
-      .catch(() => {});
-  }, []);
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (loading) return;
-    setLoading(true);
-    setError("");
-    const data = new FormData(event.currentTarget);
-    try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: {
-            name: data.get("name"),
-            phone: data.get("phone"),
-            address: data.get("address"),
-            area,
-          },
-          items,
-          promo,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.message || "Unable to place your order.");
-      setConfirmation(result);
-      onSuccess();
-    } catch (e) {
-      setError(
-        e instanceof Error
-          ? e.message
-          : "We couldn’t connect. Please try again.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
-  return (
-    <Modal
-      title={confirmation ? "Order received" : "A fresh delivery, just for you"}
-      onClose={() => {
-        if (!loading) onClose();
-      }}
-      wide
-    >
-      {confirmation ? (
-        <div className="order-success">
-          <CircleCheck size={60} />
-          <h3>Thank you for your order!</h3>
-          <p>
-            Your order number is <strong>{confirmation.reference}</strong>.
-          </p>
-          <div className="success-total">
-            <span>Order total</span>
-            <strong>{money(confirmation.total)}</strong>
-          </div>
-          <p>{confirmation.message}</p>
-          <button className="button primary" onClick={onClose}>
-            Continue shopping
-            <ArrowRight size={17} />
-          </button>
-        </div>
-      ) : (
-        <form className="checkout-form" onSubmit={submit}>
-          <p className="modal-description">
-            Delivery to <strong>{area}, Dhaka</strong>. Payment: cash on
-            delivery.
-          </p>
-          {mode === "demo" && (
-            <div className="demo-note">
-              Demo checkout: your order is saved locally. No payment is
-              collected and no delivery is scheduled.
-            </div>
-          )}
-          <div className="form-grid">
-            <label>
-              Full name
-              <input
-                name="name"
-                autoComplete="name"
-                placeholder="Your full name"
-                minLength={2}
-                maxLength={80}
-                required
-              />
-            </label>
-            <label>
-              Mobile number
-              <input
-                name="phone"
-                type="tel"
-                autoComplete="tel"
-                placeholder="01XXXXXXXXX"
-                pattern="(\+?88)?01[3-9][0-9]{8}"
-                title="Enter a valid Bangladesh mobile number, e.g. 01712345678"
-                required
-              />
-            </label>
-          </div>
-          <label>
-            Delivery address
-            <textarea
-              name="address"
-              autoComplete="street-address"
-              placeholder="House, road, apartment and any delivery directions"
-              minLength={10}
-              maxLength={300}
-              rows={3}
-              required
-            />
-          </label>
-          <div className="checkout-total">
-            <span>Total to pay on delivery</span>
-            <strong>{money(total)}</strong>
-          </div>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <button className="button primary" type="submit" disabled={loading}>
-            {loading
-              ? "Saving your order…"
-              : `${mode === "demo" ? "Place demo order" : "Place order"} · ${money(total)}`}
-            <ArrowRight size={18} />
-          </button>
-          <small className="checkout-privacy">
-            Your delivery details are used only to save this order.
-          </small>
-        </form>
-      )}
-    </Modal>
   );
 }

@@ -3,8 +3,13 @@ import { loadCatalog } from "@/lib/api";
 import { ShopProvider } from "@/components/shop-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
+import { AccountProvider } from "@/components/account-provider";
+import { MobileNavigation } from "@/components/storefront-extras";
 import "./globals.css";
+import "./checkout.css";
+import "./enhancements.css";
 export const metadata: Metadata = {
+  referrer: "no-referrer",
   title: {
     default: "FreshCart — Good food. Brighter days.",
     template: "%s | FreshCart",
@@ -21,14 +26,17 @@ export default async function RootLayout({
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <body>
-        <ShopProvider catalog={catalog}>
-          <a className="skip-link" href="#main-content">
-            Skip to content
-          </a>
-          <Header />
-          <main id="main-content">{children}</main>
-          <Footer />
-        </ShopProvider>
+        <AccountProvider>
+          <ShopProvider catalog={catalog}>
+            <a className="skip-link" href="#main-content">
+              Skip to content
+            </a>
+            <Header />
+            <main id="main-content">{children}</main>
+            <Footer />
+            <MobileNavigation />
+          </ShopProvider>
+        </AccountProvider>
       </body>
     </html>
   );

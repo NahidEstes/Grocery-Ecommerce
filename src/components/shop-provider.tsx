@@ -9,14 +9,36 @@ import {
 } from "react";
 import type { Product } from "@/lib/catalog";
 import { sanitizeCart, type CartItem } from "@/lib/commerce";
+import {
+  defaultSettings,
+  type StoreSettings,
+  type Review,
+} from "@/lib/storefront";
+import { useAccount } from "./account-provider";
+import { api } from "@/lib/client-api";
+import { useRef } from "react";
+import { usePathname } from "next/navigation";
 
 type ShopState = {
+  settings: StoreSettings;
+  payments: { enabled: boolean; sandbox: boolean };
+  popularIds: string[];
+  reviews: Omit<Review, "userId" | "reference">[];
+  storeError: string;
+  addMany: (
+    items: CartItem[],
+    strict?: boolean,
+    currentCatalog?: Product[],
+  ) => boolean;
+  refreshCatalog: () => Promise<Product[]>;
   catalog: Product[];
   items: CartItem[];
   ready: boolean;
   saved: string[];
   area: string;
   toast: string;
+  promoCode: string;
+  setPromoCode: (code: string) => void;
   setArea: (area: string) => void;
   setQuantity: (id: string, quantity: number) => void;
   addItem: (id: string, quantity?: number) => void;
@@ -26,17 +48,114 @@ type ShopState = {
 };
 const ShopContext = createContext<ShopState | null>(null);
 export function ShopProvider({
-  catalog,
+  catalog: initialCatalog,
   children,
 }: {
   catalog: Product[];
   children: ReactNode;
 }) {
+  const [catalog, setCatalog] = useState(initialCatalog);
+  const path = usePathname();
   const [items, setItems] = useState<CartItem[]>([]);
+  async function refreshCatalog() {
+    const data = await api<{ products: Product[] }>("/catalog");
+    setCatalog(data.products);
+    return data.products;
+  }
+  useEffect(() => {
+    void refreshCatalog().catch(() => {});
+  }, [path]);
+  const [ready, setReady] = useState(false);
+  const { user, ready: accountReady } = useAccount();
+  const [settings, setSettings] = useState(defaultSettings);
+  const [payments, setPayments] = useState({ enabled: false, sandbox: true });
+  const [popularIds, setPopularIds] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<
+    Omit<Review, "userId" | "reference">[]
+  >([]);
+  const [storeError, setStoreError] = useState("");
+  const loadedAccount = useRef<string | null>(null);
+  const priorAccount = useRef<string | null>(null);
+  const [cartLoadedFor, setCartLoadedFor] = useState<string | null>(null);
+  useEffect(() => {
+    api<{
+      settings: StoreSettings;
+      payments: { enabled: boolean; sandbox: boolean };
+      popularIds: string[];
+      reviews: Omit<Review, "userId" | "reference">[];
+    }>("/storefront")
+      .then((data) => {
+        setSettings(data.settings);
+        setPayments(data.payments);
+        setPopularIds(data.popularIds);
+        setReviews(data.reviews);
+        setStoreError("");
+      })
+      .catch(() =>
+        setStoreError(
+          "Store updates are unavailable. Please retry before checkout.",
+        ),
+      );
+  }, [catalog]);
+  useEffect(() => {
+    if (!accountReady || !ready) return;
+    const controller = new AbortController();
+    if (user) {
+      loadedAccount.current = null;
+      api<{ items: CartItem[] }>("/me/cart", { signal: controller.signal })
+        .then((data) => {
+          setItems(sanitizeCart(data.items, catalog));
+          loadedAccount.current = user.id;
+          priorAccount.current = user.id;
+          setCartLoadedFor(user.id);
+        })
+        .catch((error) => {
+          if (error.name !== "AbortError")
+            setToast(
+              "Your saved basket could not be loaded. Please refresh before shopping.",
+            );
+        });
+    } else {
+      loadedAccount.current = null;
+      setCartLoadedFor(null);
+      if (priorAccount.current) {
+        setItems([]);
+        setSaved([]);
+        setPromoCode("");
+        priorAccount.current = null;
+      }
+    }
+    return () => controller.abort();
+  }, [accountReady, user?.id, ready]);
+  useEffect(() => {
+    if (!user || loadedAccount.current !== user.id) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api("/me/cart", {
+        method: "PUT",
+        body: JSON.stringify({ items }),
+        signal: controller.signal,
+      }).catch(() => {});
+    }, 400);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [items, user?.id]);
   const [saved, setSaved] = useState<string[]>([]);
   const [area, updateArea] = useState("Dhanmondi");
-  const [ready, setReady] = useState(false);
   const [toast, setToast] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const canShop = ready && accountReady && (!user || cartLoadedFor === user.id);
+  useEffect(() => {
+    if (!ready) return;
+    setItems((previous) => {
+      const next = sanitizeCart(previous, catalog);
+      return JSON.stringify(next) === JSON.stringify(previous)
+        ? previous
+        : next;
+    });
+  }, [catalog, ready]);
   useEffect(() => {
     try {
       setItems(
@@ -56,6 +175,9 @@ export function ShopProvider({
           ),
         );
       const storedArea = localStorage.getItem("freshcart-area");
+      const storedPromo = localStorage.getItem("freshcart-promo");
+      if (storedPromo && /^[A-Z0-9]{3,20}$/.test(storedPromo))
+        setPromoCode(storedPromo);
       if (
         storedArea &&
         ["Dhanmondi", "Mirpur", "Uttara", "Gulshan"].includes(storedArea)
@@ -65,23 +187,30 @@ export function ShopProvider({
       /* Corrupt browser storage safely starts with an empty basket. */
     }
     setReady(true);
-  }, [catalog]);
+  }, []);
   useEffect(() => {
     if (!ready) return;
     try {
       localStorage.setItem("freshcart-cart", JSON.stringify(items));
       localStorage.setItem("freshcart-saved", JSON.stringify(saved));
       localStorage.setItem("freshcart-area", area);
+      localStorage.setItem("freshcart-promo", promoCode);
     } catch {
       /* Browsing still works when storage is unavailable. */
     }
-  }, [items, saved, area, ready]);
+  }, [items, saved, area, ready, promoCode]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(""), 3200);
     return () => clearTimeout(timer);
   }, [toast]);
   function setQuantity(id: string, quantity: number) {
+    if (!canShop) {
+      setToast(
+        "Your saved basket is still loading. Please try again in a moment.",
+      );
+      return;
+    }
     setItems((previous) =>
       sanitizeCart(
         previous.some((item) => item.productId === id)
@@ -94,8 +223,17 @@ export function ShopProvider({
     );
   }
   function addItem(id: string, quantity = 1) {
+    if (!canShop) {
+      setToast(
+        "Your saved basket is still loading. Please try again in a moment.",
+      );
+      return;
+    }
     const product = catalog.find((p) => p.id === id);
-    if (!product) return;
+    if (!product || product.active === false || product.stock < 1) {
+      setToast("This product is currently unavailable.");
+      return;
+    }
     setItems((previous) =>
       sanitizeCart([...previous, { productId: id, quantity }], catalog),
     );
@@ -108,19 +246,70 @@ export function ShopProvider({
         : [...previous, id],
     );
   }
+  function addMany(
+    incoming: CartItem[],
+    strict = false,
+    currentCatalog = catalog,
+  ) {
+    if (!canShop) {
+      setToast(
+        "Your saved basket is still loading. Please try again in a moment.",
+      );
+      return false;
+    }
+    const desired = new Map(items.map((i) => [i.productId, i.quantity]));
+    for (const item of incoming)
+      desired.set(
+        item.productId,
+        (desired.get(item.productId) || 0) + item.quantity,
+      );
+    const unavailable = [...desired].filter(([id, q]) => {
+      const p = currentCatalog.find((p) => p.id === id);
+      return !p || p.active === false || q > p.stock;
+    });
+    if (strict && unavailable.length) {
+      setToast(
+        "This bundle exceeds available stock. Please check your basket.",
+      );
+      return false;
+    }
+    const next = sanitizeCart(
+      [...desired].map(([productId, quantity]) => ({ productId, quantity })),
+      currentCatalog.filter((p) => p.active !== false),
+    );
+    setItems(next);
+    setToast(
+      unavailable.length
+        ? "Available quantities added at current prices. Some items were unavailable or limited."
+        : "Added to your basket at current prices.",
+    );
+    return true;
+  }
   return (
     <ShopContext.Provider
       value={{
+        settings,
+        payments,
+        popularIds,
+        reviews,
+        storeError,
+        addMany,
+        refreshCatalog,
         catalog,
-        items,
-        ready,
+        items: sanitizeCart(items, catalog),
+        ready: canShop,
         saved,
         area,
         toast,
+        promoCode,
+        setPromoCode,
         setArea: updateArea,
         setQuantity,
         addItem,
-        clearCart: () => setItems([]),
+        clearCart: () => {
+          setItems([]);
+          setPromoCode("");
+        },
         toggleSaved,
         notify: setToast,
       }}
@@ -148,5 +337,12 @@ export function useShop() {
   // Each deferred boundary hydrates against the same empty basket as its server HTML.
   return hydrated
     ? value
-    : { ...value, items: [], saved: [], area: "Dhanmondi", ready: false };
+    : {
+        ...value,
+        items: [],
+        saved: [],
+        area: "Dhanmondi",
+        promoCode: "",
+        ready: false,
+      };
 }

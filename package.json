@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20.19.0" },
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:web": "next dev --hostname 127.0.0.1",
@@ -14,7 +16,9 @@
     "start:api": "tsx server/index.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "seed": "tsx server/seed.ts"
+    "seed": "tsx server/seed.ts",
+    "admin:promote": "tsx server/create-admin.ts",
+    "test:mongo": "tsx --test tests/mongo.integration.ts"
   },
   "dependencies": {
     "cors": "^2.8.6",
@@ -23,6 +27,7 @@
     "lucide-react": "^1.60.0",
     "mongoose": "^9.11.2",
     "next": "^16.4.2",
+    "nodemailer": "^10.1.7",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "zod": "^4.6.7"
@@ -31,6 +36,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "concurrently": "^10.0.6",
