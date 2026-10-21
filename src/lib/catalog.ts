@@ -1,3 +1,4 @@
+import { searchScore } from "./search";
 export type Product = {
   id: string;
   slug: string;
@@ -294,7 +295,7 @@ export function filterProducts(
       (!filters.brand || p.brand === filters.brand) &&
       (!filters.dietary || p.dietary?.includes(filters.dietary)) &&
       (!filters.pack || p.unit === filters.pack) &&
-      (!query || `${p.name} ${p.description}`.toLowerCase().includes(query)) &&
+      (!query || searchScore(p, query) >= 0) &&
       (!filters.category ||
         filters.category === "all" ||
         (filters.category === "produce"
@@ -304,6 +305,8 @@ export function filterProducts(
       (!filters.offers || (p.originalPrice || 0) > p.price) &&
       (filters.maxPrice === undefined || p.price <= filters.maxPrice),
   );
+  if (query && (!filters.sort || filters.sort === "featured"))
+    result.sort((a, b) => searchScore(b, query) - searchScore(a, query));
   if (filters.sort === "price-asc") result.sort((a, b) => a.price - b.price);
   if (filters.sort === "price-desc") result.sort((a, b) => b.price - a.price);
   if (filters.sort === "rating") result.sort((a, b) => b.rating - a.rating);

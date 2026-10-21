@@ -13,6 +13,8 @@ npm run dev
 
 Open [FreshCart](http://127.0.0.1:3000/). Express listens at `127.0.0.1:4100`; Next.js proxies `/api` to it. `npm run build` creates the frontend production build; `npm start` starts both services. Set `NODE_ENV=production` on hosting and serve the web app over HTTPS. Keep Express behind the same-origin proxy. A separately configured but unavailable MongoDB stops startup instead of silently switching storage.
 
+If port 3000 is occupied, run the web app with `npm run dev:web -- --port 3001` and the API with `WEB_ORIGIN=http://127.0.0.1:3001` in its environment. The current local preview uses [port 3001](http://127.0.0.1:3001/).
+
 ## What is included
 
 | Page                   | Features                                                                                                                                                                                                                |
@@ -57,6 +59,16 @@ The seed adds missing sample products without replacing existing ones. Commerce 
 Without MongoDB, data persists in ignored `.data/store.json`. Atomic replacement and an inter-process file lock protect local transactions. Earlier `.data/orders/*.json` demo receipts remain readable and migrate on update. Local demo accounts/orders are deliberately separate from MongoDB; enabling MongoDB does not import local private data automatically. Do not use the demo filesystem as hosted commerce storage.
 
 Checkout checks current stock, prices, coverage, time slots, consent and promos on the server. The UI supplies an expected total solely to detect price changes, never to determine the charge. Changed totals require another review. Idempotent retries reserve stock once. Valid cancellation restores reserved stock once; older demo orders without inventory reservations do not increase stock. Product edits use a version check to prevent overwriting stock changed during editing. Delivered order snapshots keep their original prices.
+
+## Personal shopping and recipe baskets
+
+- The homepage shows the signed-in customer's frequent purchases from their own uncancelled orders, at current catalog prices. Unpaid online orders do not contribute. The active-order banner uses saved fulfilment/payment status and refreshes on focus, navigation and every visible minute; it offers a manual refresh. Demo orders are explicitly labelled.
+- The header searches Bengali, English and common transliterations with keyboard-accessible product suggestions, photos, pack sizes and prices. The same matching applies to the catalog results and list editor.
+- `/lists` stores named account-owned lists with notes, desired pack quantities, edit, archive/restore and save-current-basket actions. Lists sync through the API on other devices. Version checks reject conflicting edits. List quantities remain intact when stock falls; adding checks current price and remaining stock, reports limitations and preserves the list.
+- `/recipes` and `/recipes/[slug]` offer three starter recipes, 2–8 servings, whole-pack conversion, alternate pack sizes and ingredient checkboxes. Pantry seasonings are excluded. Ingredient totals cover purchased packs, with shipping calculated in the basket. Quantities are added to the existing basket, so customers can untick ingredients they already have.
+- The header basket opens a modal side drawer with quantity/removal controls, current prices, delivery/promo totals, free-delivery progress, save-as-list and checkout links. Escape restores focus to the basket button.
+
+Personal shopping endpoints: `GET /api/me/shopping`, `POST /api/me/lists`, `PUT /api/me/lists/:id`, `PATCH /api/me/lists/:id/archive`. Authentication and ownership are enforced server-side; summaries exclude addresses and receipt secrets. Each account can keep 20 active lists with up to 50 products and 100 packs per product. Lists use the existing MongoDB/demo repository; no new service credentials are needed.
 
 ## Password reset email
 

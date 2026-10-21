@@ -5,9 +5,11 @@ import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { AccountProvider } from "@/components/account-provider";
 import { MobileNavigation } from "@/components/storefront-extras";
+import { ShoppingProvider } from "@/components/shopping-provider";
 import "./globals.css";
 import "./checkout.css";
 import "./enhancements.css";
+import "./shopping.css";
 export const metadata: Metadata = {
   referrer: "no-referrer",
   title: {
@@ -28,13 +30,15 @@ export default async function RootLayout({
       <body>
         <AccountProvider>
           <ShopProvider catalog={catalog}>
-            <a className="skip-link" href="#main-content">
-              Skip to content
-            </a>
-            <Header />
-            <main id="main-content">{children}</main>
-            <Footer />
-            <MobileNavigation />
+            <ShoppingProvider>
+              <a className="skip-link" href="#main-content">
+                Skip to content
+              </a>
+              <Header />
+              <main id="main-content">{children}</main>
+              <Footer />
+              <MobileNavigation />
+            </ShoppingProvider>
           </ShopProvider>
         </AccountProvider>
       </body>

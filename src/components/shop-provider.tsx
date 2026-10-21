@@ -20,6 +20,8 @@ import { useRef } from "react";
 import { usePathname } from "next/navigation";
 
 type ShopState = {
+  miniCartOpen: boolean;
+  setMiniCartOpen: (open: boolean) => void;
   settings: StoreSettings;
   payments: { enabled: boolean; sandbox: boolean };
   popularIds: string[];
@@ -56,7 +58,14 @@ export function ShopProvider({
 }) {
   const [catalog, setCatalog] = useState(initialCatalog);
   const path = usePathname();
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItemsState] = useState<CartItem[]>([]);
+  const itemsRef = useRef<CartItem[]>([]);
+  function setItems(next: CartItem[] | ((previous: CartItem[]) => CartItem[])) {
+    const value = typeof next === "function" ? next(itemsRef.current) : next;
+    itemsRef.current = value;
+    setItemsState(value);
+  }
+  const [miniCartOpen, setMiniCartOpen] = useState(false);
   async function refreshCatalog() {
     const data = await api<{ products: Product[] }>("/catalog");
     setCatalog(data.products);
@@ -257,7 +266,9 @@ export function ShopProvider({
       );
       return false;
     }
-    const desired = new Map(items.map((i) => [i.productId, i.quantity]));
+    const desired = new Map(
+      itemsRef.current.map((i) => [i.productId, i.quantity]),
+    );
     for (const item of incoming)
       desired.set(
         item.productId,
@@ -288,6 +299,8 @@ export function ShopProvider({
   return (
     <ShopContext.Provider
       value={{
+        miniCartOpen,
+        setMiniCartOpen,
         settings,
         payments,
         popularIds,

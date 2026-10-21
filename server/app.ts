@@ -29,6 +29,7 @@ import type { SupportTicket } from "../src/lib/storefront";
 import { randomUUID } from "node:crypto";
 import { writeEntity } from "./repository";
 import { getPublicCatalog } from "./store";
+import { shoppingRoutes } from "./shopping-routes";
 export const app = express();
 app.disable("x-powered-by");
 app.use(
@@ -67,6 +68,7 @@ app.get("/api/health", (_req, res) =>
   res.json({ status: "ok", service: "freshcart-api", storage: databaseMode() }),
 );
 app.use("/api", accountRoutes);
+app.use("/api", shoppingRoutes);
 app.use("/api", adminRoutes);
 app.get("/api/storefront", async (_req, res) => {
   const settings = await getSettings();

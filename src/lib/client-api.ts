@@ -16,6 +16,9 @@ export async function api<T = Record<string, unknown>>(
     throw new Error("FreshCart returned an unexpected response. Please retry.");
   });
   if (!response.ok)
-    throw new Error(data.message || "Unable to complete this request.");
+    throw Object.assign(
+      new Error(data.message || "Unable to complete this request."),
+      { status: response.status },
+    );
   return data as T;
 }

@@ -18,6 +18,7 @@ import { money } from "@/lib/commerce";
 import type { Product } from "@/lib/catalog";
 import { ProductCard, ProductImage, SectionTitle } from "./ui";
 import { deliveryDays } from "@/lib/orders";
+import { RecipeShelf } from "./recipes";
 
 export function DeliveryChecker() {
   const { settings, area, setArea, storeError } = useShop();
@@ -221,6 +222,7 @@ export function HomeExtras() {
           </div>
         </section>
       )}
+      <RecipeShelf />
       {settings.homeSections.seasonal && (
         <Shelf
           title="In season, full of goodness"

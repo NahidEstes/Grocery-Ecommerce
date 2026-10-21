@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HomeExtras } from "@/components/storefront-extras";
+import { ActiveOrderBanner, HomeShoppingHub } from "@/components/home-shopping";
 import { ArrowRight, Leaf, ShieldCheck, Truck } from "lucide-react";
 import { loadCatalog } from "@/lib/api";
 import {
@@ -19,6 +20,7 @@ export default async function HomePage() {
       <div className="shop-layout">
         <CategorySidebar />
         <div className="shop-content">
+          <ActiveOrderBanner />
           <section className="hero">
             <div className="hero-copy">
               <span className="eyebrow">
@@ -69,6 +71,7 @@ export default async function HomePage() {
               <Leaf size={19} />
             </span>
           </section>
+          <HomeShoppingHub />
           <div className="promo-grid">
             <Link
               href="/products?category=produce"

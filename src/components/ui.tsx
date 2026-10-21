@@ -126,12 +126,14 @@ export function QuantityControl({
   max = 99,
   label = "Quantity",
   compact = false,
+  disabled = false,
 }: {
   quantity: number;
   onChange: (value: number) => void;
   max?: number;
   label?: string;
   compact?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div
@@ -141,7 +143,7 @@ export function QuantityControl({
       <button
         type="button"
         aria-label={`Decrease ${label}`}
-        disabled={quantity <= 0}
+        disabled={disabled || quantity <= 0}
         onClick={() => onChange(quantity - 1)}
       >
         <Minus size={15} />
@@ -150,7 +152,7 @@ export function QuantityControl({
       <button
         type="button"
         aria-label={`Increase ${label}`}
-        disabled={quantity >= max}
+        disabled={disabled || quantity >= max}
         onClick={() => onChange(quantity + 1)}
       >
         <Plus size={15} />

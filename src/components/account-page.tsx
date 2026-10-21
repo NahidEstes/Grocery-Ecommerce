@@ -204,6 +204,9 @@ export function AccountPage() {
               <Link className="subtle-link" href="/orders">
                 <Package size={17} /> View your orders <ArrowRight size={15} />
               </Link>
+              <Link className="subtle-link" href="/lists">
+                <Package size={17} /> My shopping lists <ArrowRight size={15} />
+              </Link>
               {user.role === "admin" && (
                 <Link className="subtle-link" href="/admin">
                   <ShieldCheck size={17} /> Open admin dashboard{" "}

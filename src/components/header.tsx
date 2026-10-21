@@ -1,24 +1,25 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronDown,
   Heart,
   Leaf,
   MapPin,
   Menu,
-  Search,
   ShoppingBag,
   ShoppingCart,
   Package,
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cartTotals, money } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
 import { CategorySidebar, Modal } from "./ui";
 import { useAccount } from "./account-provider";
+import { SmartSearch } from "./smart-search";
+import { ListChecks } from "lucide-react";
+import { MiniCart } from "./mini-cart";
 export function Brand() {
   return (
     <Link href="/" className="brand" aria-label="FreshCart home">
@@ -37,20 +38,13 @@ export function Brand() {
 }
 export function Header() {
   const { user } = useAccount();
-  const { items, catalog, area, setArea, saved, settings } = useShop();
+  const { items, catalog, area, setArea, saved, settings, setMiniCartOpen } =
+    useShop();
   const [locationOpen, setLocationOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const router = useRouter();
   const count = items.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cartTotals(items, catalog).subtotal;
-  function search(event: FormEvent) {
-    event.preventDefault();
-    router.push(
-      `/products${query.trim() ? `?q=${encodeURIComponent(query.trim())}` : ""}`,
-    );
-  }
   return (
     <>
       <div className="announcement">
@@ -85,18 +79,7 @@ export function Header() {
               </strong>
             </span>
           </button>
-          <form className="search-form" role="search" onSubmit={search}>
-            <Search size={19} />
-            <input
-              aria-label="Search groceries"
-              placeholder="Search for groceries, fruits, snacks, and more…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <button type="submit" aria-label="Search">
-              <Search size={22} />
-            </button>
-          </form>
+          <SmartSearch />
           <div className="account-wrap">
             <button
               className="account-button"
@@ -151,14 +134,18 @@ export function Header() {
                     <Package size={17} />
                     My orders
                   </Link>
+                  <Link href="/lists" onClick={() => setAccountOpen(false)}>
+                    <ListChecks size={17} />
+                    My shopping lists
+                  </Link>
                 </div>
               </>
             )}
           </div>
-          <Link
-            href="/cart"
+          <button
+            onClick={() => setMiniCartOpen(true)}
             className="header-cart"
-            aria-label={`Shopping cart, ${count} items`}
+            aria-label={`Open basket, ${count} items`}
           >
             <span className="cart-icon">
               <ShoppingCart size={28} />
@@ -168,9 +155,10 @@ export function Header() {
               <strong>My Cart</strong>
               <small>{money(subtotal)}</small>
             </span>
-          </Link>
+          </button>
         </div>
       </header>
+      <MiniCart />
       {locationOpen && (
         <Modal
           title="Where should we deliver?"
