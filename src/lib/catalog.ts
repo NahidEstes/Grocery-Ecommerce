@@ -9,6 +9,8 @@ export type Product = {
   originalPrice?: number;
   atlas: number;
   stock: number;
+  lowStockThreshold?: number;
+  searchTerms?: string[];
   description: string;
   organic?: boolean;
   rating: number;

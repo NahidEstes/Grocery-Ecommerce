@@ -1,5 +1,6 @@
 import type { Product } from "./catalog";
 import type { SavedAddress } from "./orders";
+import { translate, type Locale } from "./i18n";
 export type SupportTicket = {
   id: string;
   reference: string;
@@ -12,7 +13,7 @@ export type Account = {
   id: string;
   name: string;
   email: string;
-  role: "customer" | "admin";
+  role: "customer" | "admin" | "manager" | "editor" | "fulfilment";
   addresses: SavedAddress[];
   createdAt: string;
 };
@@ -144,7 +145,7 @@ export const defaultSettings: StoreSettings = {
     reviews: true,
   },
 };
-export function unitPrice(product: Product) {
+export function unitPrice(product: Product, locale: Locale = "en") {
   if (!product.measure || !product.measureUnit) return "";
-  return `৳ ${Number((product.price / product.measure).toFixed(2)).toLocaleString("en-BD")} / ${product.measureUnit}`;
+  return `৳ ${Number((product.price / product.measure).toFixed(2)).toLocaleString("en-BD")} / ${translate(locale, product.measureUnit)}`;
 }

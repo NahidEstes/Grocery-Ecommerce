@@ -23,6 +23,7 @@ const Entity =
 type Snapshot = Record<string, unknown>;
 const context = new AsyncLocalStorage<{
   snapshot?: Snapshot;
+  dirty?: boolean;
   session?: mongoose.ClientSession;
 }>();
 export const dataDirectory = () =>
@@ -71,6 +72,7 @@ export async function writeEntity<T>(key: string, value: T) {
     return;
   }
   if (context.getStore()?.snapshot) {
+    context.getStore()!.dirty = true;
     context.getStore()!.snapshot![key] = structuredClone(value);
     return;
   }
@@ -84,6 +86,7 @@ export async function deleteEntity(key: string) {
     return;
   }
   if (context.getStore()?.snapshot) {
+    context.getStore()!.dirty = true;
     delete context.getStore()!.snapshot![key];
     return;
   }
@@ -128,7 +131,9 @@ export async function atomic<T>(operation: () => Promise<T>): Promise<T> {
     const release = await fileLock();
     try {
       const data = await snapshot();
-      const result = await context.run({ snapshot: data }, operation);
+      const transaction = { snapshot: data, dirty: false };
+      const result = await context.run(transaction, operation);
+      if (!transaction.dirty) return result;
       await mkdir(dataDirectory(), { recursive: true });
       const temp = `${file()}.${randomUUID()}.tmp`;
       try {
@@ -136,7 +141,23 @@ export async function atomic<T>(operation: () => Promise<T>): Promise<T> {
           mode: 0o600,
           flag: "wx",
         });
-        await rename(temp, file());
+        for (let attempt = 0; ; attempt++) {
+          try {
+            await rename(temp, file());
+            break;
+          } catch (error) {
+            if (
+              attempt >= 7 ||
+              !["EPERM", "EBUSY", "EACCES"].includes(
+                (error as NodeJS.ErrnoException).code || "",
+              )
+            )
+              throw error;
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.min(500, 25 * 2 ** attempt)),
+            );
+          }
+        }
       } finally {
         await unlink(temp).catch(() => {});
       }

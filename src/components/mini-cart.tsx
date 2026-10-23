@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -17,6 +19,7 @@ import { cartTotals, money } from "@/lib/commerce";
 import { ProductImage, QuantityControl } from "./ui";
 
 export function MiniCart() {
+  const { t } = useLanguage();
   const {
     miniCartOpen,
     setMiniCartOpen,
@@ -65,7 +68,7 @@ export function MiniCart() {
     <dialog
       ref={dialog}
       className="mini-cart-drawer"
-      aria-label="Your basket"
+      aria-label={t("Your basket")}
       onCancel={(e) => {
         e.preventDefault();
         setMiniCartOpen(false);
@@ -77,14 +80,15 @@ export function MiniCart() {
       <div className="mini-cart-shell">
         <header>
           <div>
-            <span className="eyebrow">A LITTLE BASKET OF GOODNESS</span>
+            <span className="eyebrow">{t("A LITTLE BASKET OF GOODNESS")}</span>
             <h2>
-              Your basket <span>{count}</span>
+              {t("Your basket ")}
+              <span>{count}</span>
             </h2>
           </div>
           <button
             className="icon-button"
-            aria-label="Close basket"
+            aria-label={t("Close basket")}
             onClick={() => setMiniCartOpen(false)}
           >
             <X size={23} />
@@ -93,34 +97,38 @@ export function MiniCart() {
         <div className="mini-cart-body">
           {error && (
             <p className="form-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           {!ready ? (
-            <div className="loading-state">Getting your basket ready…</div>
+            <div className="loading-state">
+              {t("Getting your basket ready…")}
+            </div>
           ) : !items.length ? (
             <div className="mini-cart-empty">
               <span className="round-icon">
                 <ShoppingBag size={38} />
               </span>
-              <h3>Good things start here.</h3>
+              <h3>{t("Good things start here.")}</h3>
               <p>
-                Fresh favourites and everyday essentials are waiting for your
-                basket.
+                {t(
+                  "Fresh favourites and everyday essentials are waiting for your basket.",
+                )}
               </p>
               <Link
                 className="button primary"
                 href="/products"
                 onClick={() => setMiniCartOpen(false)}
               >
-                Find something fresh <ArrowRight size={17} />
+                {t("Find something fresh ")}
+                <ArrowRight size={17} />
               </Link>
             </div>
           ) : (
             <>
               {updating && (
                 <p className="mini-refresh-note" role="status">
-                  Updating current prices & stock…
+                  {t("Updating current prices & stock…")}
                 </p>
               )}
               {items.map((item) => {
@@ -139,14 +147,14 @@ export function MiniCart() {
                         href={`/products/${p.slug}`}
                         onClick={() => setMiniCartOpen(false)}
                       >
-                        <strong>{p.name}</strong>
+                        <strong>{t(p.name)}</strong>
                       </Link>
-                      <small>{p.unit}</small>
+                      <small>{t(p.unit)}</small>
                       <QuantityControl
                         compact
                         quantity={item.quantity}
                         max={Math.min(100, p.stock)}
-                        label={`${p.name} ${p.unit} in mini basket`}
+                        label={`${t(p.name)} ${t(p.unit)}`}
                         disabled={updating}
                         onChange={(value) => setQuantity(p.id, value)}
                       />
@@ -155,7 +163,9 @@ export function MiniCart() {
                       <strong>{money(p.price * item.quantity)}</strong>
                       <button
                         className="icon-button"
-                        aria-label={`Remove ${p.name} ${p.unit} from basket`}
+                        aria-label={t("Remove {name}", {
+                          name: `${t(p.name)} ${t(p.unit)}`,
+                        })}
                         disabled={updating}
                         onClick={() => setQuantity(p.id, 0)}
                       >
@@ -170,8 +180,10 @@ export function MiniCart() {
                 <div>
                   <strong>
                     {total.remaining > 0
-                      ? `${money(total.remaining)} away from free delivery`
-                      : "Free delivery unlocked"}
+                      ? t("{amount} away from free delivery", {
+                          amount: money(total.remaining),
+                        })
+                      : t("Free delivery unlocked")}
                   </strong>
                   <div>
                     <span
@@ -187,8 +199,8 @@ export function MiniCart() {
                 href="/lists?from=cart"
                 onClick={() => setMiniCartOpen(false)}
               >
-                <ListChecks size={17} /> Save this basket as a list{" "}
-                <ArrowRight size={14} />
+                <ListChecks size={17} />
+                {t(" Save this basket as a list")} <ArrowRight size={14} />
               </Link>
             </>
           )}
@@ -198,21 +210,27 @@ export function MiniCart() {
             <>
               <dl>
                 <div>
-                  <dt>Products subtotal</dt>
+                  <dt>{t("Products subtotal")}</dt>
                   <dd>{money(total.subtotal)}</dd>
                 </div>
                 <div>
-                  <dt>Delivery to {area}</dt>
+                  <dt>
+                    {t("Delivery to ")}
+                    {area}
+                  </dt>
                   <dd>{total.delivery ? money(total.delivery) : "FREE"}</dd>
                 </div>
                 {total.discount > 0 && (
                   <div>
-                    <dt>{promoCode} savings</dt>
+                    <dt>
+                      {promoCode}
+                      {t(" savings")}
+                    </dt>
                     <dd>− {money(total.discount)}</dd>
                   </div>
                 )}
                 <div className="mini-grand-total">
-                  <dt>Total</dt>
+                  <dt>{t("Total")}</dt>
                   <dd>{money(total.total)}</dd>
                 </div>
               </dl>
@@ -225,19 +243,21 @@ export function MiniCart() {
                   else setMiniCartOpen(false);
                 }}
               >
-                Checkout <ArrowRight size={18} />
+                {t("Checkout ")}
+                <ArrowRight size={18} />
               </Link>
               <Link
                 className="button outline"
                 href="/cart"
                 onClick={() => setMiniCartOpen(false)}
               >
-                View full basket
+                {t("View full basket")}
               </Link>
             </>
           )}
           <span className="mini-cart-note">
-            <Leaf size={14} /> Fresh choices. A little closer.
+            <Leaf size={14} />
+            {t(" Fresh choices. A little closer.")}
           </span>
         </footer>
       </div>

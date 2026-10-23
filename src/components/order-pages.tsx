@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAccount } from "./account-provider";
@@ -32,6 +34,7 @@ import { readReceipts } from "@/lib/order-browser";
 import { AddressForm } from "./address-form";
 import { Benefits, Breadcrumb, Modal } from "./ui";
 import { OrderTotals, PolicyLinks, SnapshotPhoto } from "./order-ui";
+import { CustomerReturns } from "./return-request";
 
 const statuses = {
   placed: "Order placed",
@@ -96,6 +99,7 @@ function useOrder(reference: string) {
 }
 
 export function OrderConfirmation({ reference }: { reference: string }) {
+  const { t, locale } = useLanguage();
   const { order, setOrder, loading, error, token, refresh } =
     useOrder(reference);
   const [editing, setEditing] = useState(false);
@@ -103,20 +107,22 @@ export function OrderConfirmation({ reference }: { reference: string }) {
   const [paying, setPaying] = useState(false);
   if (loading && !order)
     return (
-      <div className="page-container loading-state">Opening your order…</div>
+      <div className="page-container loading-state">
+        {t("Opening your order…")}
+      </div>
     );
   if (!order)
     return (
       <div className="page-container empty-state">
         <ShoppingBag size={48} />
-        <h1>We couldn’t open this order.</h1>
-        <p>{error}</p>
+        <h1>{t("We couldn’t open this order.")}</h1>
+        <p>{t(error)}</p>
         <div className="order-empty-actions">
           <button className="button outline" onClick={refresh}>
-            Try again
+            {t("Try again")}
           </button>
           <Link className="button primary" href="/orders">
-            View saved orders
+            {t("View saved orders")}
           </Link>
         </div>
       </div>
@@ -165,23 +171,28 @@ export function OrderConfirmation({ reference }: { reference: string }) {
           </span>
           <div>
             <h1>
-              {order.status === "cancelled"
-                ? "This order was cancelled."
-                : "Thank you for your order!"}
+              {t(
+                order.status === "cancelled"
+                  ? "This order was cancelled."
+                  : "Thank you for your order!",
+              )}
             </h1>
             <p>
-              {order.mode === "demo"
-                ? "Your demo order has been saved."
-                : order.status === "preparing"
-                  ? "Your groceries are being prepared."
-                  : order.status === "out-for-delivery"
-                    ? "Your groceries are on their way."
-                    : order.status === "delivered"
-                      ? "Your groceries have been delivered."
-                      : "Your order has been received."}
+              {t(
+                order.mode === "demo"
+                  ? "Your demo order has been saved."
+                  : order.status === "preparing"
+                    ? "Your groceries are being prepared."
+                    : order.status === "out-for-delivery"
+                      ? "Your groceries are on their way."
+                      : order.status === "delivered"
+                        ? "Your groceries have been delivered."
+                        : "Your order has been received.",
+              )}
             </p>
             <span>
-              Order number: <strong>#{order.reference}</strong>
+              {t("Order number: ")}
+              <strong>#{order.reference}</strong>
             </span>
           </div>
         </div>
@@ -190,7 +201,7 @@ export function OrderConfirmation({ reference }: { reference: string }) {
             {
               id: "placed",
               icon: Check,
-              description: orderTime(order.createdAt),
+              description: orderTime(order.createdAt, locale),
             },
             {
               id: "preparing",
@@ -218,47 +229,47 @@ export function OrderConfirmation({ reference }: { reference: string }) {
               <span>
                 <step.icon size={23} />
               </span>
-              <strong>{statuses[step.id as keyof typeof statuses]}</strong>
-              <small>{step.description}</small>
+              <strong>{t(statuses[step.id as keyof typeof statuses])}</strong>
+              <small>{t(step.description)}</small>
             </li>
           ))}
         </ol>
         <div className="order-status-row">
           <span className={`order-status status-${order.status}`}>
-            {statuses[order.status]}
+            {t(statuses[order.status])}
           </span>
           {order.mode === "demo" && (
-            <span>Demo order · No delivery is scheduled.</span>
+            <span>{t("Demo order · No delivery is scheduled.")}</span>
           )}
           <button onClick={refresh} disabled={loading}>
             <RefreshCw size={13} className={loading ? "refreshing" : ""} />
-            {loading ? "Refreshing…" : "Refresh status"}
+            {t(loading ? "Refreshing…" : "Refresh status")}
           </button>
         </div>
       </section>
       {error && (
         <p className="form-error order-refresh-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
       <div className="confirmation-layout">
         <section className="order-details-card">
-          <h2>Order details</h2>
+          <h2>{t("Order details")}</h2>
           <p>
-            {count} {count === 1 ? "item" : "items"}
+            {count} {t(count === 1 ? "item" : "items")}
           </p>
           <div className="order-detail-labels">
-            <span>Item</span>
-            <span>Quantity</span>
-            <span>Price</span>
+            <span>{t("Item")}</span>
+            <span>{t("Quantity")}</span>
+            <span>{t("Price")}</span>
           </div>
           {order.items.map((item) => (
             <div className="order-detail-row" key={item.productId}>
               <div>
                 <SnapshotPhoto item={item} />
                 <span>
-                  <strong>{item.name}</strong>
-                  <small>{item.unit}</small>
+                  <strong>{t(item.name)}</strong>
+                  <small>{t(item.unit)}</small>
                 </span>
               </div>
               <span>{item.quantity}</span>
@@ -274,23 +285,28 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                 <MapPin size={26} />
               </span>
               <div>
-                <h2>Delivery details</h2>
-                <p>Your selected delivery information</p>
+                <h2>{t("Delivery details")}</h2>
+                <p>{t("Your selected delivery information")}</p>
               </div>
             </div>
             <div className="order-info-content">
               <div>
                 <CalendarDays size={25} />
                 <span>
-                  <strong>{formatDelivery(order.deliverySelection)}</strong>
-                  <small>Selected delivery slot · Dhaka time</small>
+                  <strong>
+                    {formatDelivery(order.deliverySelection, locale)}
+                  </strong>
+                  <small>{t("Selected delivery slot · Dhaka time")}</small>
                 </span>
               </div>
               <div>
                 <MapPin size={25} />
                 <span>
                   <strong>{order.customer.address}</strong>
-                  <small>{order.customer.area}, Dhaka</small>
+                  <small>
+                    {order.customer.area}
+                    {t(", Dhaka")}
+                  </small>
                   <small>
                     {order.customer.name} · {order.customer.phone}
                   </small>
@@ -300,7 +316,7 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                     className="change-address"
                     onClick={() => setEditing(true)}
                   >
-                    Change
+                    {t("Change")}
                   </button>
                 )}
               </div>
@@ -308,7 +324,7 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                 <div className="order-instructions">
                   <Leaf size={20} />
                   <span>
-                    <strong>Delivery instructions</strong>
+                    <strong>{t("Delivery instructions")}</strong>
                     <small>{order.instructions}</small>
                   </span>
                 </div>
@@ -321,11 +337,13 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                 <Banknote size={26} />
               </span>
               <div>
-                <h2>Payment</h2>
+                <h2>{t("Payment")}</h2>
                 <p>
-                  {order.payment === "online"
-                    ? "Online payment via SSLCOMMERZ."
-                    : "You chose cash on delivery."}
+                  {t(
+                    order.payment === "online"
+                      ? "Online payment via SSLCOMMERZ."
+                      : "You chose cash on delivery.",
+                  )}
                 </p>
               </div>
             </div>
@@ -335,15 +353,19 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                 <span>
                   <strong>
                     {order.payment === "online"
-                      ? `${order.sandbox ? "Sandbox · " : ""}${order.paymentStatus === "paid" ? "Payment verified" : order.paymentStatus === "review" ? "Payment under review" : "Awaiting payment"}`
-                      : "Cash on delivery"}
+                      ? `${order.sandbox ? `${t("Sandbox")} · ` : ""}${t(order.paymentStatus === "paid" ? "Payment verified" : order.paymentStatus === "review" ? "Payment under review" : "Awaiting payment")}`
+                      : t("Cash on delivery")}
                   </strong>
                   <small>
                     {order.payment === "online"
-                      ? `Order total ${money(order.total)}`
+                      ? t("Order total {amount}", {
+                          amount: money(order.total),
+                        })
                       : order.mode === "demo"
-                        ? "Demo order — no payment is due."
-                        : `Pay ${money(order.total)} on arrival`}
+                        ? t("Demo order — no payment is due.")
+                        : t("Pay {amount} on arrival", {
+                            amount: money(order.total),
+                          })}
                   </small>
                 </span>
               </div>
@@ -377,29 +399,32 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                     }
                   }}
                 >
-                  {paying ? "Opening gateway…" : "Continue to payment"}
+                  {t(paying ? "Opening gateway…" : "Continue to payment")}
                 </button>
                 <p className="muted">
-                  Unpaid reservations expire after 30 minutes.
+                  {t("Unpaid reservations expire after 30 minutes.")}
                 </p>
               </>
             )}
           {paymentError && (
             <p className="form-error" role="alert">
-              {paymentError}
+              {t(paymentError)}
             </p>
           )}
           <BuyAgain order={order} />
           <Link href="/products" className="button primary">
-            Continue shopping
+            {t("Continue shopping")}
             <ArrowRight size={19} />
           </Link>
           <Link href="/orders" className="button order-secondary-button">
-            View all orders
+            {t("View all orders")}
           </Link>
           <OrderSupport reference={order.reference} token={token} />
         </aside>
       </div>
+      {order.status === "delivered" && (
+        <CustomerReturns order={order} token={token} />
+      )}
       <Benefits />
       {editing && (
         <AddressForm
@@ -416,6 +441,7 @@ export function OrderConfirmation({ reference }: { reference: string }) {
 
 type HistoryItem = { receipt: OrderReceipt; order?: Order; failed?: boolean };
 export function OrdersPage() {
+  const { t, locale } = useLanguage();
   const { user, ready } = useAccount();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -493,12 +519,14 @@ export function OrdersPage() {
       <Breadcrumb items={[{ label: "Your orders" }]} />
       <div className="orders-heading">
         <div>
-          <span className="eyebrow">YOUR FRESH FINDS</span>
-          <h1>Your orders</h1>
+          <span className="eyebrow">{t("YOUR FRESH FINDS")}</span>
+          <h1>{t("Your orders")}</h1>
           <p>
-            {user
-              ? "Your orders, available wherever you sign in."
-              : "Orders placed in this browser. Sign in to keep them across devices."}
+            {t(
+              user
+                ? "Your orders, available wherever you sign in."
+                : "Orders placed in this browser. Sign in to keep them across devices.",
+            )}
           </p>
         </div>
         <button
@@ -507,25 +535,27 @@ export function OrdersPage() {
           disabled={loading}
         >
           <RefreshCw size={16} />
-          Refresh
+          {t("Refresh")}
         </button>
       </div>
       {historyError && (
         <p className="form-error" role="alert">
-          {historyError}
+          {t(historyError)}
         </p>
       )}
       {loading ? (
-        <div className="loading-state">Finding your orders…</div>
+        <div className="loading-state">{t("Finding your orders…")}</div>
       ) : !history.length ? (
         <div className="empty-state">
           <ShoppingBag size={49} />
-          <h2>Your next fresh delivery starts here.</h2>
+          <h2>{t("Your next fresh delivery starts here.")}</h2>
           <p>
-            Once you place an order, you can find its details and status here.
+            {t(
+              "Once you place an order, you can find its details and status here.",
+            )}
           </p>
           <Link href="/products" className="button primary">
-            Start shopping
+            {t("Start shopping")}
             <ArrowRight size={17} />
           </Link>
         </div>
@@ -536,11 +566,14 @@ export function OrdersPage() {
               <div className="history-card-heading">
                 <span>
                   <strong>#{receipt.reference}</strong>
-                  <small>{orderTime(receipt.createdAt)} · Dhaka time</small>
+                  <small>
+                    {orderTime(receipt.createdAt, locale)}
+                    {t(" · Dhaka time")}
+                  </small>
                 </span>
                 {order && (
                   <span className={`order-status status-${order.status}`}>
-                    {statuses[order.status]}
+                    {t(statuses[order.status])}
                   </span>
                 )}
               </div>
@@ -551,8 +584,9 @@ export function OrdersPage() {
                   ))}
                   {failed && (
                     <p>
-                      Order details are unavailable. Open the order to try
-                      again.
+                      {t(
+                        "Order details are unavailable. Open the order to try again.",
+                      )}
                     </p>
                   )}
                 </div>
@@ -568,7 +602,7 @@ export function OrdersPage() {
                   href={`/orders/${receipt.reference}`}
                   className="button outline"
                 >
-                  View order
+                  {t("View order")}
                   <ArrowRight size={16} />
                 </Link>
                 {order && <BuyAgain order={order} />}
@@ -579,13 +613,14 @@ export function OrdersPage() {
       )}
       <Link className="continue-shopping" href="/products">
         <ArrowLeft size={16} />
-        Continue shopping
+        {t("Continue shopping")}
       </Link>
     </div>
   );
 }
 
 function BuyAgain({ order }: { order: Order }) {
+  const { t, locale } = useLanguage();
   const { addMany, refreshCatalog, ready } = useShop();
   const router = useRouter();
   const [busy, setBusy] = useState(false),
@@ -616,12 +651,12 @@ function BuyAgain({ order }: { order: Order }) {
           }
         }}
       >
-        {busy ? "Checking stock…" : "Buy again"}
+        {t(busy ? "Checking stock…" : "Buy again")}
         <ShoppingBag size={16} />
       </button>
       {error && (
         <p className="form-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>
@@ -635,6 +670,7 @@ function OrderSupport({
   reference: string;
   token: string;
 }) {
+  const { t, locale } = useLanguage();
   const [open, setOpen] = useState(false),
     [message, setMessage] = useState(""),
     [error, setError] = useState(""),
@@ -642,18 +678,22 @@ function OrderSupport({
   return (
     <>
       <button className="order-help" onClick={() => setOpen(true)}>
-        Need help? <span>Contact the store</span>
+        {t("Need help? ")}
+        <span>{t("Contact the store")}</span>
       </button>
       {open && (
         <Modal
-          title="Help with your order"
+          title={t("Help with your order")}
           onClose={() => {
             if (!busy) setOpen(false);
           }}
         >
           <p className="modal-description">
-            Order #{reference}. Describe missing or damaged items, or your
-            delivery question. Your request goes to the store’s admin panel.
+            {t("Order #")}
+            {reference}
+            {t(
+              ". Describe missing or damaged items, or your delivery question. Your request goes to the store’s admin panel.",
+            )}
           </p>
           {message ? (
             <p className="success-message" role="status">
@@ -687,7 +727,7 @@ function OrderSupport({
               }}
             >
               <label>
-                How can we help?
+                {t("How can we help?")}
                 <textarea
                   name="message"
                   rows={4}
@@ -698,11 +738,11 @@ function OrderSupport({
               </label>
               {error && (
                 <p className="form-error" role="alert">
-                  {error}
+                  {t(error)}
                 </p>
               )}
               <button className="button primary" disabled={busy}>
-                {busy ? "Saving request…" : "Send request"}
+                {t(busy ? "Saving request…" : "Send request")}
               </button>
             </form>
           )}

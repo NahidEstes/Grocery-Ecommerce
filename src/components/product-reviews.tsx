@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Check, Star } from "lucide-react";
@@ -7,6 +9,7 @@ import { useShop } from "./shop-provider";
 import { api } from "@/lib/client-api";
 import type { Order } from "@/lib/orders";
 export function ProductReviews({ productIds }: { productIds: string[] }) {
+  const { t } = useLanguage();
   const { user } = useAccount();
   const { reviews } = useShop();
   const [orders, setOrders] = useState<Order[]>([]),
@@ -59,8 +62,8 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
     <section className="product-reviews surface-card">
       <div className="card-title">
         <div>
-          <span className="eyebrow">FROM REAL PURCHASES</span>
-          <h2>Customer reviews</h2>
+          <span className="eyebrow">{t("FROM REAL PURCHASES")}</span>
+          <h2>{t("Customer reviews")}</h2>
         </div>
         <Star size={25} />
       </div>
@@ -74,27 +77,28 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
               >
                 {"★".repeat(r.rating)}
               </span>
-              <p>{r.text}</p>
+              <p>{t(r.text)}</p>
               <strong>{r.author}</strong>
               <small>
-                <Check size={13} /> Verified purchase
+                <Check size={13} />
+                {t(" Verified purchase")}
               </small>
             </article>
           ))}
         </div>
       ) : (
-        <p className="quiet-empty">No verified reviews yet.</p>
+        <p className="quiet-empty">{t("No verified reviews yet.")}</p>
       )}
       {!user ? (
         <Link className="subtle-link" href="/account">
-          Sign in to review a delivered purchase
+          {t("Sign in to review a delivered purchase")}
         </Link>
       ) : eligible.length && !message ? (
         <form className="enhance-form review-form" onSubmit={submit}>
-          <h3>Share your experience</h3>
+          <h3>{t("Share your experience")}</h3>
           <div className="form-grid">
             <label>
-              Delivered purchase
+              {t("Delivered purchase")}
               <select name="purchase">
                 {eligible.flatMap((o) =>
                   o.items
@@ -104,25 +108,26 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
                         key={`${o.reference}-${i.productId}`}
                         value={`${o.reference}|${i.productId}`}
                       >
-                        {o.reference} · {i.unit}
+                        {o.reference} · {t(i.unit)}
                       </option>
                     )),
                 )}
               </select>
             </label>
             <label>
-              Rating
+              {t("Rating")}
               <select name="rating" defaultValue="5">
                 {[5, 4, 3, 2, 1].map((n) => (
                   <option key={n} value={n}>
-                    {n} out of 5
+                    {n}
+                    {t(" out of 5")}
                   </option>
                 ))}
               </select>
             </label>
           </div>
           <label>
-            Your review
+            {t("Your review")}
             <textarea
               name="text"
               minLength={10}
@@ -132,19 +137,19 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
             />
           </label>
           <button className="button primary" disabled={busy}>
-            {busy ? "Submitting…" : "Submit review"}
+            {t(busy ? "Submitting…" : "Submit review")}
           </button>
         </form>
       ) : (
         !message && (
           <p className="muted">
-            Reviews become available after a real order is delivered.
+            {t("Reviews become available after a real order is delivered.")}
           </p>
         )
       )}
       {error && (
         <p role="alert" className="form-error">
-          {error}
+          {t(error)}
         </p>
       )}
       {message && (

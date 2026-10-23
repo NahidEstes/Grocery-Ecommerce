@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -12,6 +14,7 @@ import {
 import { useEffect, useRef, useTransition, useState } from "react";
 import { categories, filterProducts } from "@/lib/catalog";
 import { useShop } from "./shop-provider";
+import { api } from "@/lib/client-api";
 import {
   Benefits,
   Breadcrumb,
@@ -21,6 +24,7 @@ import {
 } from "./ui";
 
 export function ProductListing() {
+  const { t } = useLanguage();
   const params = useSearchParams();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -58,6 +62,16 @@ export function ProductListing() {
     dietary,
     pack,
   });
+  useEffect(() => {
+    if (query.trim().length < 2 || result.total || !catalog.length) return;
+    const timer = setTimeout(() => {
+      void api("/search-misses", {
+        method: "POST",
+        body: JSON.stringify({ query: query.trim().slice(0, 80) }),
+      }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [query, result.total, catalog]);
   const categoryName =
     categories.find((c) => c.slug === category)?.name ||
     (category === "fruits"
@@ -66,7 +80,7 @@ export function ProductListing() {
         ? "Fresh Vegetables"
         : "All Groceries");
   const title = query
-    ? `Results for “${query}”`
+    ? t("Results for “{query}”", { query })
     : savedOnly
       ? "Your saved favourites"
       : offers
@@ -118,14 +132,18 @@ export function ProductListing() {
         },
       ].map((f) => (
         <label key={f.key}>
-          {f.label}
+          {t(f.label)}
           <select
             value={f.value}
             onChange={(e) => update({ [f.key]: e.target.value || null })}
           >
-            <option value="">All {f.label.toLowerCase()} options</option>
+            <option value="">
+              {t("All {label} options", { label: t(f.label) })}
+            </option>
             {f.options.map((v) => (
-              <option key={v}>{v}</option>
+              <option value={v} key={v}>
+                {t(v)}
+              </option>
             ))}
           </select>
         </label>
@@ -135,7 +153,7 @@ export function ProductListing() {
         href="/products"
         onClick={() => setFiltersOpen(false)}
       >
-        Clear all filters
+        {t("Clear all filters")}
       </Link>
     </div>
   );
@@ -155,28 +173,30 @@ export function ProductListing() {
             <div>
               <span className="eyebrow">
                 <Leaf size={14} />
-                FRESH PICKS, EVERY DAY
+                {t("FRESH PICKS, EVERY DAY")}
               </span>
-              <h1>{title}</h1>
+              <h1>{t(title)}</h1>
               <p>
-                {result.total} {result.total === 1 ? "product" : "products"}
-                <span>•</span>Goodness for a healthier you.
+                {result.total} {t(result.total === 1 ? "product" : "products")}
+                <span>•</span>
+                {t("Goodness for a healthier you.")}
               </p>
             </div>
             <div className="listing-banner">
               <strong>
-                Fresh from farm
+                {t("Fresh from farm")}
                 <br />
-                to your home.
+                {t("to your home.")}
               </strong>
               <small>
-                A little freshness.
-                <br />A whole lot of goodness.
+                {t("A little freshness.")}
+                <br />
+                {t("A whole lot of goodness.")}
               </small>
             </div>
           </div>
           <div className="filter-toolbar">
-            <div className="filter-tabs" aria-label="Product categories">
+            <div className="filter-tabs" aria-label={t("Product categories")}>
               {[
                 {
                   label: "All",
@@ -204,7 +224,7 @@ export function ProductListing() {
                     update({ category: tab.value || null, organic: null })
                   }
                 >
-                  {tab.label}
+                  {t(tab.label)}
                 </button>
               ))}
               <button
@@ -217,35 +237,35 @@ export function ProductListing() {
                 }
               >
                 <Leaf size={13} />
-                Organic
+                {t("Organic")}
               </button>
             </div>
             <div className="sort-controls">
               <label>
                 <SlidersHorizontal size={15} />
-                <span className="sr-only">Maximum price</span>
+                <span className="sr-only">{t("Maximum price")}</span>
                 <select
                   value={maxPrice || ""}
                   onChange={(e) => update({ maxPrice: e.target.value || null })}
                 >
-                  <option value="">Any price</option>
-                  <option value="50">Under ৳50</option>
-                  <option value="100">Under ৳100</option>
-                  <option value="200">Under ৳200</option>
+                  <option value="">{t("Any price")}</option>
+                  <option value="50">{t("Under ৳50")}</option>
+                  <option value="100">{t("Under ৳100")}</option>
+                  <option value="200">{t("Under ৳200")}</option>
                 </select>
               </label>
               <label>
-                <span className="sort-label">Sort:</span>
+                <span className="sort-label">{t("Sort:")}</span>
                 <select
-                  aria-label="Sort products"
+                  aria-label={t("Sort products")}
                   value={sort}
                   onChange={(e) => update({ sort: e.target.value })}
                 >
-                  <option value="featured">Featured</option>
-                  <option value="price-asc">Price: low to high</option>
-                  <option value="price-desc">Price: high to low</option>
-                  <option value="rating">Top rated</option>
-                  <option value="name">Name: A–Z</option>
+                  <option value="featured">{t("Featured")}</option>
+                  <option value="price-asc">{t("Price: low to high")}</option>
+                  <option value="price-desc">{t("Price: high to low")}</option>
+                  <option value="rating">{t("Top rated")}</option>
+                  <option value="name">{t("Name: A–Z")}</option>
                 </select>
               </label>
             </div>
@@ -255,12 +275,13 @@ export function ProductListing() {
             className="button outline mobile-filter-trigger"
             onClick={() => setFiltersOpen(true)}
           >
-            <SlidersHorizontal size={17} /> More filters{" "}
+            <SlidersHorizontal size={17} />
+            {t(" More filters")}{" "}
             {[brand, dietary, pack].filter(Boolean).length || ""}
           </button>
           {filtersOpen && (
             <Modal
-              title="Filter groceries"
+              title={t("Filter groceries")}
               onClose={() => setFiltersOpen(false)}
             >
               {facets}
@@ -268,7 +289,9 @@ export function ProductListing() {
                 className="button primary"
                 onClick={() => setFiltersOpen(false)}
               >
-                Show {result.total} products
+                {t("Show ")}
+                {result.total}
+                {t(" products")}
               </button>
             </Modal>
           )}
@@ -284,7 +307,7 @@ export function ProductListing() {
             <div className="active-filters">
               {offers && (
                 <button onClick={() => update({ offers: null })}>
-                  Offers
+                  {t("Offers")}
                   <X size={12} />
                 </button>
               )}
@@ -296,20 +319,21 @@ export function ProductListing() {
               )}
               {maxPrice && (
                 <button onClick={() => update({ maxPrice: null })}>
-                  Under ৳{maxPrice}
+                  {t("Under ৳")}
+                  {maxPrice}
                   <X size={12} />
                 </button>
               )}
               {savedOnly && (
                 <button onClick={() => update({ saved: null })}>
-                  Saved items
+                  {t("Saved items")}
                   <X size={12} />
                 </button>
               )}
-              <Link href="/products">Clear all</Link>
+              <Link href="/products">{t("Clear all")}</Link>
               {[brand, dietary, pack].filter(Boolean).map((v) => (
                 <span className="filter-chip" key={v}>
-                  {v}
+                  {t(v)}
                 </span>
               ))}
             </div>
@@ -326,26 +350,30 @@ export function ProductListing() {
             <div className="empty-state">
               <SearchX size={46} />
               <h2>
-                {savedOnly
-                  ? "Your favourites start here"
-                  : "No groceries found"}
+                {t(
+                  savedOnly
+                    ? "Your favourites start here"
+                    : "No groceries found",
+                )}
               </h2>
               <p>
-                {savedOnly
-                  ? "Tap the heart on any product to save it for later."
-                  : "Try a different search or clear a few filters."}
+                {t(
+                  savedOnly
+                    ? "Tap the heart on any product to save it for later."
+                    : "Try a different search or clear a few filters.",
+                )}
               </p>
               <Link href="/products" className="button primary">
-                Browse all groceries
+                {t("Browse all groceries")}
               </Link>
             </div>
           )}
           {result.totalPages > 1 && (
-            <nav className="pagination" aria-label="Product pages">
+            <nav className="pagination" aria-label={t("Product pages")}>
               <button
                 disabled={result.page === 1}
                 onClick={() => update({ page: String(result.page - 1) })}
-                aria-label="Previous page"
+                aria-label={t("Previous page")}
               >
                 <ChevronLeft size={17} />
               </button>
@@ -362,15 +390,19 @@ export function ProductListing() {
               <button
                 disabled={result.page === result.totalPages}
                 onClick={() => update({ page: String(result.page + 1) })}
-                aria-label="Next page"
+                aria-label={t("Next page")}
               >
                 <ChevronRight size={17} />
               </button>
             </nav>
           )}
           <p className="results-note">
-            Showing {result.total ? (result.page - 1) * 8 + 1 : 0}–
-            {Math.min(result.page * 8, result.total)} of {result.total} products
+            {t("Showing ")}
+            {result.total ? (result.page - 1) * 8 + 1 : 0}–
+            {Math.min(result.page * 8, result.total)}
+            {t(" of ")}
+            {result.total}
+            {t(" products")}
           </p>
         </div>
       </div>

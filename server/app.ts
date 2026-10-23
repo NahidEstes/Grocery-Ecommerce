@@ -30,6 +30,9 @@ import { randomUUID } from "node:crypto";
 import { writeEntity } from "./repository";
 import { getPublicCatalog } from "./store";
 import { shoppingRoutes } from "./shopping-routes";
+import { managementRoutes } from "./management-routes";
+import { getContent, getRecipes } from "./management-store";
+import { can } from "../src/lib/management";
 export const app = express();
 app.disable("x-powered-by");
 app.use(
@@ -38,7 +41,8 @@ app.use(
     credentials: true,
   }),
 );
-app.use(express.json({ limit: "256kb" }));
+app.use("/api/admin/media", express.json({ limit: "3mb" }));
+app.use(express.json({ limit: "512kb" }));
 app.use(
   "/api/payments",
   express.urlencoded({ extended: false, limit: "16kb" }),
@@ -69,6 +73,7 @@ app.get("/api/health", (_req, res) =>
 );
 app.use("/api", accountRoutes);
 app.use("/api", shoppingRoutes);
+app.use("/api", managementRoutes);
 app.use("/api", adminRoutes);
 app.get("/api/storefront", async (_req, res) => {
   const settings = await getSettings();
@@ -88,6 +93,8 @@ app.get("/api/storefront", async (_req, res) => {
     .filter((r) => r.status === "approved")
     .map(({ userId: _user, reference: _reference, ...r }) => r);
   res.json({
+    content: await getContent(),
+    recipes: (await getRecipes()).filter((r) => r.active !== false),
     settings,
     popularIds: [...sales].sort((a, b) => b[1] - a[1]).map(([id]) => id),
     reviews,
@@ -146,7 +153,7 @@ async function access(req: express.Request, reference: string) {
     !order ||
     !(
       tokenAccess(order, token) ||
-      (user && (user.role === "admin" || order.userId === user.id))
+      (user && (can(user.role, "orders") || order.userId === user.id))
     )
   )
     throw bad(

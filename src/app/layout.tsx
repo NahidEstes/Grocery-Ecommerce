@@ -1,5 +1,11 @@
 import type { Metadata } from "next";
-import { loadCatalog } from "@/lib/api";
+import { cookies } from "next/headers";
+import { LANGUAGE_COOKIE, normalizeLocale } from "@/lib/i18n";
+import {
+  LanguageProvider,
+  SkipToContent,
+} from "@/components/language-provider";
+import { loadCatalog, loadStorefront } from "@/lib/api";
 import { ShopProvider } from "@/components/shop-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
@@ -10,6 +16,8 @@ import "./globals.css";
 import "./checkout.css";
 import "./enhancements.css";
 import "./shopping.css";
+import "./management.css";
+import "./language.css";
 export const metadata: Metadata = {
   referrer: "no-referrer",
   title: {
@@ -24,23 +32,31 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const catalog = await loadCatalog();
+  const [catalog, storefront] = await Promise.all([
+    loadCatalog(),
+    loadStorefront(),
+  ]);
+  const locale = normalizeLocale((await cookies()).get(LANGUAGE_COOKIE)?.value);
   return (
-    <html lang="en" data-scroll-behavior="smooth">
+    <html lang={locale} data-scroll-behavior="smooth">
       <body>
-        <AccountProvider>
-          <ShopProvider catalog={catalog}>
-            <ShoppingProvider>
-              <a className="skip-link" href="#main-content">
-                Skip to content
-              </a>
-              <Header />
-              <main id="main-content">{children}</main>
-              <Footer />
-              <MobileNavigation />
-            </ShoppingProvider>
-          </ShopProvider>
-        </AccountProvider>
+        <LanguageProvider initialLocale={locale}>
+          <AccountProvider>
+            <ShopProvider
+              catalog={catalog}
+              initialContent={storefront.content}
+              initialRecipes={storefront.recipes}
+            >
+              <ShoppingProvider>
+                <SkipToContent />
+                <Header />
+                <main id="main-content">{children}</main>
+                <Footer />
+                <MobileNavigation />
+              </ShoppingProvider>
+            </ShopProvider>
+          </AccountProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

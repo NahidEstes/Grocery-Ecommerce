@@ -8,6 +8,9 @@ export type RecipeIngredient = {
   pantry?: string;
 };
 export type Recipe = {
+  version?: number;
+  active?: boolean;
+  imageUrl?: string;
   slug: string;
   title: string;
   eyebrow: string;

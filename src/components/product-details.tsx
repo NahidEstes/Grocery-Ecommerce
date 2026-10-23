@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import {
   Heart,
   Leaf,
@@ -30,6 +32,7 @@ export function ProductDetails({
 }: {
   product: Product;
 }) {
+  const { t, locale } = useLanguage();
   const {
     catalog,
     addItem,
@@ -92,45 +95,45 @@ export function ProductDetails({
           <button
             className={`gallery-main ${zoomed ? "zoomed" : ""}`}
             onClick={() => setZoomed(!zoomed)}
-            aria-label={
-              zoomed ? "Zoom out product photo" : "Zoom in product photo"
-            }
+            aria-label={t(
+              zoomed ? "Zoom out product photo" : "Zoom in product photo",
+            )}
           >
             <ProductImage product={product} />
             <span>
-              {zoomed ? "Click to zoom out" : "Click to take a closer look"}
+              {t(zoomed ? "Click to zoom out" : "Click to take a closer look")}
             </span>
           </button>
           <div className="gallery-thumbnails">
             <button
               className={!zoomed ? "selected" : ""}
               onClick={() => setZoomed(false)}
-              aria-label="Show full product photo"
+              aria-label={t("Show full product photo")}
             >
               <ProductImage product={product} />
             </button>
             <button
               className={zoomed ? "selected" : ""}
               onClick={() => setZoomed(true)}
-              aria-label="Show product close-up"
+              aria-label={t("Show product close-up")}
             >
               <ProductImage product={product} className="thumbnail-zoom" />
             </button>
             <span>
               <Leaf size={17} />
-              Freshly picked.
+              {t("Freshly picked.")}
               <br />
-              Carefully packed.
+              {t("Carefully packed.")}
             </span>
           </div>
         </div>
         <div className="product-info">
-          <span className="eyebrow">A FRESH LITTLE FAVOURITE</span>
-          <h1>{product.name}</h1>
+          <span className="eyebrow">{t("A FRESH LITTLE FAVOURITE")}</span>
+          <h1>{t(product.name)}</h1>
           <div className="product-rating">
             <span>
               <Star size={17} fill="currentColor" />
-              {average || "No reviews yet"}{" "}
+              {average || t("No reviews yet")}{" "}
               <small>
                 {average ? `${productReviews.length} verified reviews` : ""}
               </small>
@@ -138,26 +141,29 @@ export function ProductDetails({
             <i />
             <span className="in-stock">
               <Check size={13} />
-              {product.stock > 0 ? "In stock" : "Out of stock"}
+              {t(product.stock > 0 ? "In stock" : "Out of stock")}
             </span>
           </div>
-          <p className="product-description">{product.description}</p>
+          <p className="product-description">{t(product.description)}</p>
           <div className="detail-prices">
             <strong>{money(product.price)}</strong>
             {product.originalPrice && <del>{money(product.originalPrice)}</del>}
             {discount > 0 && (
-              <span className="discount-badge">{discount}% OFF</span>
+              <span className="discount-badge">
+                {discount}
+                {t("% OFF")}
+              </span>
             )}
           </div>
-          {unitPrice(product) && (
-            <p className="unit-comparison">{unitPrice(product)}</p>
+          {unitPrice(product, locale) && (
+            <p className="unit-comparison">{unitPrice(product, locale)}</p>
           )}
           <div className="purchase-options">
             <label>
-              Pack size
+              {t("Pack size")}
               <select
                 className="pack-size"
-                aria-label="Pack size"
+                aria-label={t("Pack size")}
                 value={product.id}
                 onChange={(e) => {
                   setSelectedId(e.target.value);
@@ -167,14 +173,14 @@ export function ProductDetails({
               >
                 {variants.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.unit} · {money(v.price)}
-                    {v.stock < 1 ? " · Out of stock" : ""}
+                    {t(v.unit)} · {money(v.price)}
+                    {t(v.stock < 1 ? " · Out of stock" : "")}
                   </option>
                 ))}
               </select>
             </label>
             <div>
-              <label>Quantity</label>
+              <label>{t("Quantity")}</label>
               <QuantityControl
                 quantity={quantity}
                 max={product.stock}
@@ -195,18 +201,18 @@ export function ProductDetails({
             >
               {added ? <Check size={21} /> : <ShoppingCart size={21} />}{" "}
               {added
-                ? "Added to your cart"
-                : `Add to cart · ${money(product.price * quantity)}`}
+                ? t("Added to your cart")
+                : `${t("Add to cart")} · ${money(product.price * quantity)}`}
             </button>
             <button
               className={`wishlist-button ${saved.includes(product.id) ? "saved" : ""}`}
               onClick={() => toggleSaved(product.id)}
               aria-pressed={saved.includes(product.id)}
-              aria-label={
+              aria-label={t(
                 saved.includes(product.id)
                   ? "Remove from saved items"
-                  : "Add to saved items"
-              }
+                  : "Add to saved items",
+              )}
             >
               <Heart
                 size={23}
@@ -216,7 +222,7 @@ export function ProductDetails({
           </div>
           <p className="purchase-note">
             <ShieldCheck size={15} />
-            Freshness checked. Packed with care.
+            {t("Freshness checked. Packed with care.")}
           </p>
         </div>
         <aside className="delivery-panel">
@@ -224,29 +230,35 @@ export function ProductDetails({
             <div>
               <Truck size={25} />
               <span>
-                <strong>Delivery to {area}</strong>
-                <small>Dhaka · Delivered with care</small>
+                <strong>
+                  {t("Delivery to ")}
+                  {area}
+                </strong>
+                <small>{t("Dhaka · Delivered with care")}</small>
               </span>
             </div>
             <div>
               <Clock3 size={25} />
               <span>
-                <strong>Choose your delivery slot</strong>
-                <small>Available times shown at checkout.</small>
+                <strong>{t("Choose your delivery slot")}</strong>
+                <small>{t("Available times shown at checkout.")}</small>
               </span>
             </div>
             <div>
               <Truck size={25} />
               <span>
-                <strong>Free delivery</strong>
-                <small>On orders of {money(settings.freeDeliveryAt)}+</small>
+                <strong>{t("Free delivery")}</strong>
+                <small>
+                  {t("On orders of ")}
+                  {money(settings.freeDeliveryAt)}+
+                </small>
               </span>
             </div>
             <div>
               <Leaf size={25} />
               <span>
-                <strong>Freshness guarantee</strong>
-                <small>Quality you can trust</small>
+                <strong>{t("Freshness guarantee")}</strong>
+                <small>{t("Quality you can trust")}</small>
               </span>
             </div>
           </div>
@@ -254,15 +266,15 @@ export function ProductDetails({
             <div>
               <ShieldCheck size={26} />
               <span>
-                <strong>Picked for quality</strong>
-                <small>Fresh & carefully selected</small>
+                <strong>{t("Picked for quality")}</strong>
+                <small>{t("Fresh & carefully selected")}</small>
               </span>
             </div>
             <div>
               <RotateCcw size={25} />
               <span>
-                <strong>Something not quite right?</strong>
-                <small>Let us know when it arrives.</small>
+                <strong>{t("Something not quite right?")}</strong>
+                <small>{t("Let us know when it arrives.")}</small>
               </span>
             </div>
           </div>
@@ -271,18 +283,19 @@ export function ProductDetails({
       <div className="mobile-purchase-bar">
         <span>
           <strong>{money(product.price * quantity)}</strong>
-          <small>{product.unit}</small>
+          <small>{t(product.unit)}</small>
         </span>
         <button
           className="button primary"
           disabled={!ready || product.stock < 1}
           onClick={() => addItem(product.id, quantity)}
         >
-          <ShoppingCart size={18} /> Add to cart
+          <ShoppingCart size={18} />
+          {t(" Add to cart")}
         </button>
       </div>
       <section className="product-tabs">
-        <div role="tablist" aria-label="Product information">
+        <div role="tablist" aria-label={t("Product information")}>
           {["Description", "Storage & care", "Details"].map((item) => (
             <button
               key={item}
@@ -293,7 +306,7 @@ export function ProductDetails({
               className={tab === item ? "selected" : ""}
               onClick={() => setTab(item)}
             >
-              {item}
+              {t(item)}
             </button>
           ))}
         </div>
@@ -305,26 +318,30 @@ export function ProductDetails({
         >
           {tab === "Description" ? (
             <p>
-              {product.description} Product images are illustrative; natural
-              produce may vary in size, shape and colour.
+              {t(product.description)}
+              {t(
+                " Product images are illustrative; natural produce may vary in size, shape and colour.",
+              )}
             </p>
           ) : tab === "Storage & care" ? (
             <p>
-              {product.storage ||
-                "Supplier storage instructions have not been supplied. Check the product packaging before use."}
+              {t(
+                product.storage ||
+                  "Supplier storage instructions have not been supplied. Check the product packaging before use.",
+              )}
             </p>
           ) : (
             <dl>
               <div>
-                <dt>Pack size</dt>
-                <dd>{product.unit}</dd>
+                <dt>{t("Pack size")}</dt>
+                <dd>{t(product.unit)}</dd>
               </div>
               <div>
-                <dt>Availability</dt>
-                <dd>{product.stock > 0 ? "In stock" : "Out of stock"}</dd>
+                <dt>{t("Availability")}</dt>
+                <dd>{t(product.stock > 0 ? "In stock" : "Out of stock")}</dd>
               </div>
               <div>
-                <dt>Product code</dt>
+                <dt>{t("Product code")}</dt>
                 <dd>FC-{product.id.toUpperCase()}</dd>
               </div>
               {(
@@ -336,8 +353,8 @@ export function ProductDetails({
                 ] as const
               ).map(([label, value]) => (
                 <div key={label}>
-                  <dt>{label}</dt>
-                  <dd>{value || "Not supplied — check the packaging."}</dd>
+                  <dt>{t(label)}</dt>
+                  <dd>{t(value || "Not supplied — check the packaging.")}</dd>
                 </div>
               ))}
             </dl>
@@ -346,10 +363,10 @@ export function ProductDetails({
       </section>
       <ProductReviews productIds={variants.map((v) => v.id)} />
       <SectionTitle
-        title="You may also like"
-        subtitle="A few more good things for your basket."
+        title={t("You may also like")}
+        subtitle={t("A few more good things for your basket.")}
         href="/products"
-        linkText="See more"
+        linkText={t("See more")}
       />
       <div className="product-grid related-products">
         {related.map((p) => (

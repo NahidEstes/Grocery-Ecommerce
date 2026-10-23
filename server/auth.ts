@@ -8,6 +8,7 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import type { Account } from "../src/lib/storefront";
+import { can, isStaff, type Permission } from "../src/lib/management";
 import { atomic, readEntity, writeEntity, deleteEntity } from "./repository";
 const scrypt = promisify(scryptCallback);
 export const digest = (s: string) =>
@@ -136,6 +137,23 @@ export async function requireAdmin(req: Request) {
   const user = await requireUser(req);
   if (user.role !== "admin")
     throw Object.assign(new Error("Administrator access is required."), {
+      status: 403,
+    });
+  return user;
+}
+export async function requirePermission(req: Request, permission: Permission) {
+  const user = await requireUser(req);
+  if (!can(user.role, permission))
+    throw Object.assign(
+      new Error("Your staff role does not allow this action."),
+      { status: 403 },
+    );
+  return user;
+}
+export async function requireStaff(req: Request) {
+  const user = await requireUser(req);
+  if (!isStaff(user.role))
+    throw Object.assign(new Error("Staff access is required."), {
       status: 403,
     });
   return user;

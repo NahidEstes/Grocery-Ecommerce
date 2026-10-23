@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { requireAdmin, requireUser } from "./auth";
+import { requirePermission, requireStaff, requireUser } from "./auth";
+import { can, type Permission } from "../src/lib/management";
+import { audit, stockEvent, getContent } from "./management-store";
 import {
   getCatalog,
   saveCatalog,
@@ -16,10 +18,26 @@ import type { Review } from "../src/lib/storefront";
 import type { SupportTicket } from "../src/lib/storefront";
 export const adminRoutes = Router();
 adminRoutes.use("/admin", async (req, _res, next) => {
-  await requireAdmin(req);
+  if (req.method === "GET" && req.path === "/overview") await requireStaff(req);
+  else {
+    const group = req.path.split("/")[1];
+    const permission = (
+      {
+        products: "products",
+        settings: "content",
+        orders: "orders",
+        reviews: "reviews",
+        support: "support",
+      } as Record<string, Permission>
+    )[group];
+    if (!permission) await requireStaff(req);
+    else await requirePermission(req, permission);
+  }
   next();
 });
-adminRoutes.get("/admin/overview", async (_req, res) => {
+adminRoutes.get("/admin/overview", async (req, res) => {
+  const actor = await requireStaff(req),
+    content = await getContent();
   await atomic(expirePending);
   const orders = await listOrders(),
     catalog = await getCatalog();
@@ -27,26 +45,50 @@ adminRoutes.get("/admin/overview", async (_req, res) => {
     (o) => o.status === "delivered" && o.mode === "mongodb" && !o.sandbox,
   );
   res.json({
-    support: await listEntities<SupportTicket>("support:"),
-    orders: orders.map(publicOrder),
+    stockThreshold: content.lowStockThreshold,
+    support: can(actor.role, "support")
+      ? await listEntities<SupportTicket>("support:")
+      : [],
+    orders:
+      can(actor.role, "orders") || can(actor.role, "reports")
+        ? orders.map(publicOrder)
+        : [],
     products: catalog,
     settings: await getSettings(),
-    reviews: await listEntities<Review>("review:"),
+    reviews: can(actor.role, "reviews")
+      ? await listEntities<Review>("review:")
+      : [],
     metrics: {
-      orders: orders.length,
-      revenue: delivered.reduce((s, o) => s + o.total, 0),
-      delivered: delivered.length,
-      pending: orders.filter(
-        (o) => !["delivered", "cancelled"].includes(o.status),
+      orders: can(actor.role, "reports") ? orders.length : 0,
+      revenue: can(actor.role, "reports")
+        ? delivered.reduce((s, o) => s + o.total, 0)
+        : 0,
+      delivered: can(actor.role, "reports") ? delivered.length : 0,
+      pending: can(actor.role, "reports")
+        ? orders.filter((o) => !["delivered", "cancelled"].includes(o.status))
+            .length
+        : 0,
+      lowStock: catalog.filter(
+        (p) =>
+          p.active !== false &&
+          p.stock <= (p.lowStockThreshold ?? content.lowStockThreshold),
       ).length,
-      lowStock: catalog.filter((p) => p.active !== false && p.stock <= 5)
-        .length,
     },
     storage: process.env.MONGODB_URI ? "mongodb" : "demo",
   });
 });
 adminRoutes.put("/admin/products/:id", async (req, res) => {
+  const actor = await requirePermission(req, "products");
   const input = productSchema.parse(req.body);
+  const reason =
+    z
+      .string()
+      .trim()
+      .min(3)
+      .max(200)
+      .optional()
+      .parse(req.body.changeReason || undefined) ||
+    "Product editor stock adjustment";
   if (input.id !== req.params.id) throw bad("Product ID cannot change.");
   await atomic(async () => {
     const catalog = await getCatalog();
@@ -69,15 +111,23 @@ adminRoutes.put("/admin/products/:id", async (req, res) => {
       version: (old?.version || 0) + 1,
       createdAt: old ? old.createdAt : new Date().toISOString(),
     };
+    await stockEvent(actor, item.id, old?.stock || 0, item.stock, reason);
     await saveCatalog(
       old
         ? catalog.map((p) => (p.id === item.id ? item : p))
         : [...catalog, item],
     );
+    await audit(
+      actor,
+      "product.saved",
+      item.id,
+      old ? "Product updated" : "Product created",
+    );
   });
   res.json({ ok: true });
 });
 adminRoutes.put("/admin/settings", async (req, res) => {
+  const actor = await requirePermission(req, "content");
   const settings = settingsSchema.parse(req.body);
   await atomic(async () => {
     const catalog = await getCatalog();
@@ -85,10 +135,29 @@ adminRoutes.put("/admin/settings", async (req, res) => {
       if (bundle.items.some((i) => !catalog.some((p) => p.id === i.productId)))
         throw bad(`Bundle ${bundle.name} references an unknown product.`);
     await saveSettings(settings);
+    const content = await getContent();
+    await writeEntity("content", {
+      ...content,
+      version: content.version + 1,
+      sections: content.sections.map((s) => ({
+        ...s,
+        enabled:
+          s.id in settings.homeSections
+            ? settings.homeSections[s.id as keyof typeof settings.homeSections]
+            : s.enabled,
+      })),
+    });
+    await audit(
+      actor,
+      "settings.updated",
+      "storefront",
+      "Storefront settings saved",
+    );
   });
   res.json({ ok: true });
 });
 adminRoutes.patch("/admin/orders/:reference", async (req, res) => {
+  const actor = await requirePermission(req, "orders");
   const { status } = z
     .object({
       status: z.enum([
@@ -102,11 +171,12 @@ adminRoutes.patch("/admin/orders/:reference", async (req, res) => {
     .parse(req.body);
   res.json({
     order: publicOrder(
-      await changeStatus(req.params.reference as string, status),
+      await changeStatus(req.params.reference as string, status, actor),
     ),
   });
 });
 adminRoutes.patch("/admin/reviews/:id", async (req, res) => {
+  const actor = await requirePermission(req, "reviews");
   const { status } = z
     .object({ status: z.enum(["approved", "rejected", "pending"]) })
     .parse(req.body);
@@ -114,10 +184,23 @@ adminRoutes.patch("/admin/reviews/:id", async (req, res) => {
     const review = await readEntity<Review>(`review:${req.params.id}`);
     if (!review) throw bad("Review not found.", 404);
     await writeEntity(`review:${review.id}`, { ...review, status });
+    const key = `case-meta:review:${review.id}`,
+      old = await readEntity<Record<string, unknown>>(key);
+    await writeEntity(key, {
+      id: `review:${review.id}`,
+      assigneeId: "",
+      priority: "normal",
+      ...old,
+      version: Number(old?.version || 0) + 1,
+      updatedAt: new Date().toISOString(),
+      resolvedAt: status === "pending" ? undefined : new Date().toISOString(),
+    });
+    await audit(actor, "review.status", review.id, status);
   });
   res.json({ ok: true });
 });
 adminRoutes.patch("/admin/support/:id", async (req, res) => {
+  const actor = await requirePermission(req, "support");
   const { status } = z
     .object({ status: z.enum(["open", "resolved"]) })
     .parse(req.body);
@@ -125,6 +208,18 @@ adminRoutes.patch("/admin/support/:id", async (req, res) => {
     const ticket = await readEntity<SupportTicket>(`support:${req.params.id}`);
     if (!ticket) throw bad("Support request not found.", 404);
     await writeEntity(`support:${ticket.id}`, { ...ticket, status });
+    const key = `case-meta:support:${ticket.id}`,
+      old = await readEntity<Record<string, unknown>>(key);
+    await writeEntity(key, {
+      id: `support:${ticket.id}`,
+      assigneeId: "",
+      priority: "normal",
+      ...old,
+      version: Number(old?.version || 0) + 1,
+      updatedAt: new Date().toISOString(),
+      resolvedAt: status === "resolved" ? new Date().toISOString() : undefined,
+    });
+    await audit(actor, "support.status", ticket.id, status);
   });
   res.json({ ok: true });
 });

@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import { useEffect, useRef, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { useShop } from "./shop-provider";
@@ -19,6 +21,7 @@ export function AddSelection({
   className?: string;
   onAdded?: () => void;
 }) {
+  const { t } = useLanguage();
   const { ready, addMany, refreshCatalog, items: cart, notify } = useShop();
   const { user } = useAccount();
   const owner = useRef(user?.id);
@@ -86,11 +89,11 @@ export function AddSelection({
         }}
       >
         <ShoppingCart size={17} />
-        {busy ? "Checking price & stock…" : label}
+        {t(busy ? "Checking price & stock…" : label)}
       </button>
       {error && (
         <p className="selection-message" role="status">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>

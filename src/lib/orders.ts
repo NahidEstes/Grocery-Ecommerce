@@ -1,4 +1,5 @@
 import type { CartItem } from "./commerce";
+import { localeTag, translate, type Locale } from "./i18n";
 
 export const deliveryAreas = [
   "Dhanmondi",
@@ -40,6 +41,7 @@ export type Order = {
   }[];
   subtotal: number;
   discount: number;
+  promoCode?: string;
   delivery: number;
   total: number;
   deliverySelection: DeliverySelection;
@@ -130,20 +132,23 @@ export function isValidDelivery(
       day.slots.some((slot) => slot.id === selection.slot),
   );
 }
-export function formatDelivery(selection: DeliverySelection) {
+export function formatDelivery(
+  selection: DeliverySelection,
+  locale: Locale = "en",
+) {
   const date = new Date(`${selection.date}T12:00:00+06:00`);
   const day = Number.isFinite(date.getTime())
-    ? date.toLocaleDateString("en-GB", {
+    ? date.toLocaleDateString(localeTag(locale), {
         day: "numeric",
         month: "short",
         year: "numeric",
         timeZone: "Asia/Dhaka",
       })
     : selection.date;
-  return `${day}, ${deliverySlots.find((slot) => slot.id === selection.slot)?.label || ""}`;
+  return `${day}, ${translate(locale, deliverySlots.find((slot) => slot.id === selection.slot)?.label || "")}`;
 }
-export function orderTime(value: string) {
-  return new Date(value).toLocaleString("en-GB", {
+export function orderTime(value: string, locale: Locale = "en") {
+  return new Date(value).toLocaleString(localeTag(locale), {
     day: "numeric",
     month: "short",
     hour: "numeric",

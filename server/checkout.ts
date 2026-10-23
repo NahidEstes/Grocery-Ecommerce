@@ -15,6 +15,7 @@ import {
 } from "./store";
 import { orderSchema, bad } from "./validation";
 import type { z } from "zod";
+import { audit, stockEvent } from "./management-store";
 export const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export function tokenAccess(order: OrderRecord | null, token: string) {
   if (!order?.accessTokenHash || !token || token.length > 128) return false;
@@ -154,6 +155,7 @@ export async function placeOrder(
         };
       }),
       ...totals,
+      promoCode: input.promo?.toUpperCase(),
       payment: input.payment,
       paymentStatus: input.payment === "online" ? "pending" : "unpaid",
       status: "placed",
@@ -172,6 +174,17 @@ export async function placeOrder(
           : undefined,
     };
     await saveOrder(order);
+    await audit(user || undefined, "order.placed", reference, "Order received");
+    for (const item of items) {
+      const p = catalog.find((p) => p.id === item.productId)!;
+      await stockEvent(
+        undefined,
+        p.id,
+        p.stock,
+        p.stock - item.quantity,
+        `Order reservation ${reference}`,
+      );
+    }
     await saveCatalog(
       catalog.map((p) => ({
         ...p,
@@ -189,7 +202,11 @@ const transitions: Record<string, string[]> = {
   delivered: [],
   cancelled: [],
 };
-export async function changeStatus(reference: string, status: string) {
+export async function changeStatus(
+  reference: string,
+  status: string,
+  actor?: { id: string; name: string },
+) {
   return atomic(async () => {
     const order = await findOrder(reference);
     if (!order) throw bad("Order not found.", 404);
@@ -209,7 +226,18 @@ export async function changeStatus(reference: string, status: string) {
           409,
         );
       const catalog = await getCatalog();
-      if (order.inventoryReserved)
+      if (order.inventoryReserved) {
+        for (const item of order.items) {
+          const p = catalog.find((p) => p.id === item.productId);
+          if (p)
+            await stockEvent(
+              actor,
+              p.id,
+              p.stock,
+              p.stock + item.quantity,
+              `Cancelled order ${reference}`,
+            );
+        }
         await saveCatalog(
           catalog.map((p) => {
             const item = order.items.find((i) => i.productId === p.id);
@@ -220,6 +248,7 @@ export async function changeStatus(reference: string, status: string) {
             };
           }),
         );
+      }
     }
     const updated = {
       ...order,
@@ -229,6 +258,12 @@ export async function changeStatus(reference: string, status: string) {
       updatedAt: new Date().toISOString(),
     };
     await replaceOrder(updated);
+    await audit(
+      actor,
+      "order.status",
+      reference,
+      `${order.status} → ${status}`,
+    );
     return updated;
   });
 }

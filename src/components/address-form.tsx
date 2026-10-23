@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import { useState, type FormEvent } from "react";
 import { Check, MapPin } from "lucide-react";
 import {
@@ -21,6 +23,7 @@ export function AddressForm({
   onClose: () => void;
   orderOnly?: boolean;
 }) {
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -74,23 +77,23 @@ export function AddressForm({
       <form className="checkout-form address-form" onSubmit={submit}>
         <p className="modal-description">
           <MapPin size={15} />
-          Fresh groceries, delivered to the right place.
+          {t("Fresh groceries, delivered to the right place.")}
         </p>
         <div className="form-grid">
           <label>
-            Full name
+            {t("Full name")}
             <input
               name="name"
               autoComplete="name"
               defaultValue={initial?.name}
-              placeholder="Your full name"
+              placeholder={t("Your full name")}
               minLength={2}
               maxLength={80}
               required
             />
           </label>
           <label>
-            Mobile number
+            {t("Mobile number")}
             <input
               name="phone"
               type="tel"
@@ -99,7 +102,7 @@ export function AddressForm({
               placeholder="01XXXXXXXXX"
               pattern="(\+?88)?01[3-9][0-9]{8}"
               maxLength={14}
-              title="Enter a valid Bangladesh mobile number"
+              title={t("Enter a valid Bangladesh mobile number")}
               required
             />
           </label>
@@ -107,34 +110,36 @@ export function AddressForm({
         <div className="form-grid">
           {!orderOnly && (
             <label>
-              Address label
+              {t("Address label")}
               <select name="label" defaultValue={initial?.label || "Home"}>
-                <option>Home</option>
-                <option>Office</option>
-                <option>Other</option>
+                <option value="Home">{t("Home")}</option>
+                <option value="Office">{t("Office")}</option>
+                <option value="Other">{t("Other")}</option>
               </select>
             </label>
           )}
           <label>
-            Delivery area
+            {t("Delivery area")}
             <select name="area" defaultValue={initial?.area || area}>
               {deliveryAreas
                 .filter(
                   (option) => !orderOnly || option === (initial?.area || area),
                 )
                 .map((option) => (
-                  <option key={option}>{option}</option>
+                  <option value={option} key={option}>
+                    {t(option)}
+                  </option>
                 ))}
             </select>
           </label>
         </div>
         <label>
-          Street address
+          {t("Street address")}
           <textarea
             name="address"
             autoComplete="street-address"
             defaultValue={initial?.address}
-            placeholder="House, road, apartment and nearby landmark"
+            placeholder={t("House, road, apartment and nearby landmark")}
             minLength={10}
             maxLength={300}
             rows={3}
@@ -143,17 +148,19 @@ export function AddressForm({
         </label>
         {error && (
           <p className="form-error" role="alert">
-            {error}
+            {t(error)}
           </p>
         )}
         <button type="submit" className="button primary" disabled={loading}>
           <Check size={18} />
-          {loading ? "Saving address…" : "Save address"}
+          {t(loading ? "Saving address…" : "Save address")}
         </button>
         <small className="checkout-privacy">
-          {orderOnly
-            ? "These details update only this order’s delivery address."
-            : "Addresses are saved to your account when signed in, or to this browser when shopping as a guest."}
+          {t(
+            orderOnly
+              ? "These details update only this order’s delivery address."
+              : "Addresses are saved to your account when signed in, or to this browser when shopping as a guest.",
+          )}
         </small>
       </form>
     </Modal>

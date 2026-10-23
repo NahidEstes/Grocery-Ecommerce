@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -26,6 +28,7 @@ import {
 import { CheckoutSteps } from "./order-ui";
 
 export function CartPage() {
+  const { t } = useLanguage();
   const {
     items,
     catalog,
@@ -69,7 +72,7 @@ export function CartPage() {
     if (settings.promos.some((p) => p.active && p.code === code)) {
       setPromo(code);
       setPromoError("");
-      notify(`${code} applied. A little extra goodness!`);
+      notify(t("{code} applied. A little extra goodness!", { code }));
     } else {
       setPromoError("This promo code is not available.");
     }
@@ -80,41 +83,51 @@ export function CartPage() {
       <div className="cart-heading">
         <div>
           <h1>
-            Shopping Cart<span className="heading-dot">.</span>
+            {t("Shopping Cart")}
+            <span className="heading-dot">.</span>
           </h1>
           <p>
-            {count} {count === 1 ? "item" : "items"} in your cart
+            {t(
+              count === 1
+                ? "{count} item in your cart"
+                : "{count} items in your cart",
+              { count },
+            )}
           </p>
         </div>
         <CheckoutSteps step={1} />
       </div>
       {!ready ? (
-        <div className="loading-state">Getting your basket ready…</div>
+        <div className="loading-state">{t("Getting your basket ready…")}</div>
       ) : items.length === 0 ? (
         <div className="empty-state cart-empty">
           <div className="empty-basket">
             <ShoppingBag size={56} />
             <Leaf size={22} />
           </div>
-          <span className="eyebrow">GOOD THINGS START WITH A FRESH BASKET</span>
-          <h2>Your cart is waiting for something good.</h2>
+          <span className="eyebrow">
+            {t("GOOD THINGS START WITH A FRESH BASKET")}
+          </span>
+          <h2>{t("Your cart is waiting for something good.")}</h2>
           <p>
-            Fresh favourites, everyday essentials and a little extra goodness.
+            {t(
+              "Fresh favourites, everyday essentials and a little extra goodness.",
+            )}
           </p>
           <Link href="/products" className="button primary">
-            Start shopping
+            {t("Start shopping")}
             <ArrowRight size={18} />
           </Link>
         </div>
       ) : (
         <>
           <div className="cart-layout">
-            <section className="cart-table" aria-label="Cart items">
+            <section className="cart-table" aria-label={t("Cart items")}>
               <div className="cart-table-head">
-                <span>Product</span>
-                <span>Price</span>
-                <span>Quantity</span>
-                <span>Total</span>
+                <span>{t("Product")}</span>
+                <span>{t("Price")}</span>
+                <span>{t("Quantity")}</span>
+                <span>{t("Total")}</span>
                 <span />
               </div>
               {items.map((item) => {
@@ -126,8 +139,8 @@ export function CartPage() {
                     <Link className="cart-product" href={`/products/${p.slug}`}>
                       <ProductImage product={p} />
                       <span>
-                        <strong>{p.name}</strong>
-                        <small>{p.unit}</small>
+                        <strong>{t(p.name)}</strong>
+                        <small>{t(p.unit)}</small>
                       </span>
                     </Link>
                     <span className="cart-unit-price">{money(p.price)}</span>
@@ -143,7 +156,7 @@ export function CartPage() {
                     </strong>
                     <button
                       className="remove-item icon-button"
-                      aria-label={`Remove ${p.name} from cart`}
+                      aria-label={t("Remove {name}", { name: t(p.name) })}
                       onClick={() => {
                         setQuantity(p.id, 0);
                         notify(`${p.name} removed from your cart`);
@@ -159,9 +172,13 @@ export function CartPage() {
                 <div>
                   <strong>
                     {totals.remaining > 0 ? (
-                      <>Add {money(totals.remaining)} more for free delivery</>
+                      <>
+                        {t("Add ")}
+                        {money(totals.remaining)}
+                        {t(" more for free delivery")}
+                      </>
                     ) : (
-                      "You’ve unlocked free delivery!"
+                      t("You’ve unlocked free delivery!")
                     )}
                   </strong>
                   <div className="progress-track">
@@ -178,26 +195,31 @@ export function CartPage() {
               </div>
             </section>
             <aside className="order-summary">
-              <h2>Order Summary</h2>
+              <h2>{t("Order Summary")}</h2>
               <dl className="totals-list">
                 <div>
-                  <dt>Subtotal ({count} items)</dt>
+                  <dt>
+                    {t("Subtotal (")}
+                    {count}
+                    {t(" items)")}
+                  </dt>
                   <dd>{money(totals.subtotal)}</dd>
                 </div>
                 <div>
-                  <dt>Delivery fee</dt>
+                  <dt>{t("Delivery fee")}</dt>
                   <dd>
                     {totals.delivery ? (
                       money(totals.delivery)
                     ) : (
-                      <span className="free-label">FREE</span>
+                      <span className="free-label">{t("FREE")}</span>
                     )}
                   </dd>
                 </div>
                 {totals.discount > 0 && (
                   <div className="discount-line">
                     <dt>
-                      {promo} discount
+                      {promo}
+                      {t(" discount")}
                       <button
                         className="text-button"
                         onClick={() => {
@@ -205,43 +227,48 @@ export function CartPage() {
                           setPromoInput("");
                         }}
                       >
-                        Remove
+                        {t("Remove")}
                       </button>
                     </dt>
                     <dd>− {money(totals.discount)}</dd>
                   </div>
                 )}
                 <div className="grand-total">
-                  <dt>Total</dt>
+                  <dt>{t("Total")}</dt>
                   <dd>{money(totals.total)}</dd>
                 </div>
               </dl>
               <form className="promo-form" onSubmit={applyPromo}>
-                <label htmlFor="promo-code">Have a promo code?</label>
+                <label htmlFor="promo-code">{t("Have a promo code?")}</label>
                 <div>
                   <Tag size={17} />
                   <input
                     id="promo-code"
-                    placeholder="Enter promo code"
+                    placeholder={t("Enter promo code")}
                     maxLength={20}
                     value={promoInput}
                     onChange={(e) => setPromoInput(e.target.value)}
                     disabled={!!promo}
                   />
                   <button type="submit" disabled={!!promo}>
-                    {promo ? <Check size={17} /> : "Apply"}
+                    {promo ? <Check size={17} /> : t("Apply")}
                   </button>
                 </div>
                 <small
                   className={promoError ? "form-error" : ""}
                   role={promoError ? "alert" : undefined}
                 >
-                  {promoError ||
-                    (promo
-                      ? `${promo} applied — enjoy your savings.`
+                  {promoError
+                    ? t(promoError)
+                    : promo
+                      ? t("{code} applied — enjoy your savings.", {
+                          code: promo,
+                        })
                       : settings.promos.some((p) => p.active)
-                        ? `Available code: ${settings.promos.find((p) => p.active)!.code}`
-                        : "Enter a valid store promo code.")}
+                        ? t("Available code: {code}", {
+                            code: settings.promos.find((p) => p.active)!.code,
+                          })
+                        : t("Enter a valid store promo code.")}
                 </small>
               </form>
               <Link
@@ -252,29 +279,29 @@ export function CartPage() {
                     : "/checkout"
                 }
               >
-                Proceed to checkout
+                {t("Proceed to checkout")}
                 <ArrowRight size={19} />
               </Link>
               <div className="secure-payments">
                 <span>
                   <LockKeyhole size={13} />
-                  Secure checkout
+                  {t("Secure checkout")}
                 </span>
                 <div>
                   <span className="payment-bkash">bKash</span>
                   <span className="payment-visa">VISA</span>
                   <span className="payment-cash">
                     <CreditCard size={17} />
-                    Cash on delivery
+                    {t("Cash on delivery")}
                   </span>
                 </div>
-                <p>No payment details stored on this device.</p>
+                <p>{t("No payment details stored on this device.")}</p>
               </div>
             </aside>
           </div>
           <Link className="continue-shopping" href="/products">
             <ArrowLeft size={17} />
-            Continue shopping
+            {t("Continue shopping")}
           </Link>
         </>
       )}
@@ -284,9 +311,9 @@ export function CartPage() {
             ? "You might also need"
             : "A few favourites to get you started"
         }
-        subtitle="The little things that make the everyday better."
+        subtitle={t("The little things that make the everyday better.")}
         href="/products"
-        linkText="See more products"
+        linkText={t("See more products")}
       />
       <div className="product-grid cart-suggestions">
         {suggestions.map((p) => (

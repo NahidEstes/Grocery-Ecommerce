@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -23,30 +25,47 @@ import { AddSelection } from "./basket-selection";
 import { Breadcrumb, ProductImage, SectionTitle } from "./ui";
 
 function RecipePhotos({ recipe }: { recipe: Recipe }) {
+  const { t } = useLanguage();
+  const { catalog } = useShop();
+  if (recipe.imageUrl)
+    return (
+      <div className="recipe-photos">
+        <img
+          src={recipe.imageUrl}
+          alt={t(recipe.title)}
+          className="recipe-cover"
+        />
+      </div>
+    );
   return (
     <div className={`recipe-photos recipe-${recipe.slug}`}>
-      {recipe.atlas.map((atlas, i) => (
-        <ProductImage
-          key={atlas}
-          product={
-            {
-              atlas,
-              name: recipe.ingredients[i]?.name || recipe.title,
-            } as Product
-          }
-        />
-      ))}
+      {recipe.ingredients
+        .filter((i) => i.productId)
+        .slice(0, 3)
+        .map((i) => {
+          const p = catalog.find((p) => p.id === i.productId);
+          return p ? <ProductImage key={i.id} product={p} /> : null;
+        })}
+      {!recipe.ingredients.some((i) => i.productId) && <ChefHat size={72} />}
     </div>
   );
 }
-export function RecipeShelf() {
+export function RecipeShelf({
+  title = "A little inspiration for your table",
+}: {
+  title?: string;
+}) {
+  const { t } = useLanguage();
+  const { recipes } = useShop();
   return (
     <section className="recipe-shelf">
       <SectionTitle
-        title="A little inspiration for your table"
-        subtitle="Simple recipes. Clear ingredients. A basket made for you."
+        title={title}
+        subtitle={t(
+          "Simple recipes. Clear ingredients. A basket made for you.",
+        )}
         href="/recipes"
-        linkText="Explore recipes"
+        linkText={t("Explore recipes")}
       />
       <div className="recipe-card-grid">
         {recipes.map((recipe) => (
@@ -57,17 +76,19 @@ export function RecipeShelf() {
           >
             <RecipePhotos recipe={recipe} />
             <div>
-              <span className="eyebrow">{recipe.eyebrow}</span>
-              <h3>{recipe.title}</h3>
-              <p>{recipe.description}</p>
+              <span className="eyebrow">{t(recipe.eyebrow)}</span>
+              <h3>{t(recipe.title)}</h3>
+              <p>{t(recipe.description)}</p>
               <footer>
                 <span>
                   <Clock size={14} />
-                  {recipe.minutes} min
+                  {recipe.minutes}
+                  {t(" min")}
                 </span>
                 <span>
                   <Users size={14} />
-                  {recipe.servings} servings
+                  {recipe.servings}
+                  {t(" servings")}
                 </span>
                 <ArrowRight size={18} />
               </footer>
@@ -79,21 +100,25 @@ export function RecipeShelf() {
   );
 }
 export function RecipesPage() {
+  const { t } = useLanguage();
   return (
     <div className="page-container recipes-page">
       <Breadcrumb items={[{ label: "Recipes" }]} />
       <div className="recipe-intro">
         <span className="eyebrow">
-          <ChefHat size={16} /> FROM BASKET TO TABLE
+          <ChefHat size={16} />
+          {t(" FROM BASKET TO TABLE")}
         </span>
         <h1>
-          Good food starts
+          {t("Good food starts")}
           <br />
-          with a little inspiration<span className="heading-dot">.</span>
+          {t("with a little inspiration")}
+          <span className="heading-dot">.</span>
         </h1>
         <p>
-          Pick a recipe, choose your servings and shop the ingredients you need.
-          Already have something? Leave it in your pantry.
+          {t(
+            "Pick a recipe, choose your servings and shop the ingredients you need. Already have something? Leave it in your pantry.",
+          )}
         </p>
         <Leaf size={100} />
       </div>
@@ -101,14 +126,16 @@ export function RecipesPage() {
       <div className="recipe-shopping-note">
         <ShoppingBag size={23} />
         <p>
-          Ingredient baskets use full product packs at current prices. Pantry
-          seasonings are listed separately and are not added automatically.
+          {t(
+            "Ingredient baskets use full product packs at current prices. Pantry seasonings are listed separately and are not added automatically.",
+          )}
         </p>
       </div>
     </div>
   );
 }
 export function RecipeDetails({ recipe }: { recipe: Recipe }) {
+  const { t } = useLanguage();
   const { catalog } = useShop();
   const [servings, setServings] = useState(recipe.servings),
     [selected, setSelected] = useState<Record<string, boolean>>(() =>
@@ -163,18 +190,20 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
         <div>
           <span className="eyebrow">
             <ChefHat size={15} />
-            {recipe.eyebrow}
+            {t(recipe.eyebrow)}
           </span>
-          <h1>{recipe.title}</h1>
-          <p>{recipe.description}</p>
+          <h1>{t(recipe.title)}</h1>
+          <p>{t(recipe.description)}</p>
           <div className="recipe-facts">
             <span>
               <Clock size={16} />
-              {recipe.minutes} minutes
+              {recipe.minutes}
+              {t(" minutes")}
             </span>
             <span>
               <Users size={16} />
-              {recipe.servings} base servings
+              {recipe.servings}
+              {t(" base servings")}
             </span>
           </div>
         </div>
@@ -184,21 +213,23 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
         <section className="recipe-ingredients surface-card">
           <div className="card-title">
             <div>
-              <h2>Your ingredients</h2>
-              <p>Tick what you need. Untick what you already have.</p>
+              <h2>{t("Your ingredients")}</h2>
+              <p>{t("Tick what you need. Untick what you already have.")}</p>
             </div>
             <label className="servings-picker">
-              Servings
+              {t("Servings")}
               <select
-                aria-label="Recipe servings"
+                aria-label={t("Recipe servings")}
                 value={servings}
                 onChange={(e) => setServings(Number(e.target.value))}
               >
-                {[2, 4, 6, 8].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
+                {[...new Set([recipe.servings, 2, 4, 6, 8])]
+                  .sort((a, b) => a - b)
+                  .map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
               </select>
             </label>
           </div>
@@ -219,7 +250,9 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
                   <label>
                     <input
                       type="checkbox"
-                      aria-label={`Include ${ingredient.name}`}
+                      aria-label={t("Include {name}", {
+                        name: t(ingredient.name),
+                      })}
                       checked={!!selected[ingredient.id]}
                       disabled={!ingredient.productId}
                       onChange={(e) =>
@@ -239,9 +272,9 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
                       )}
                     </span>
                     <span>
-                      <strong>{ingredient.name}</strong>
+                      <strong>{t(ingredient.name)}</strong>
                       <small>
-                        Need{" "}
+                        {t("Need")}{" "}
                         {ingredientAmount(
                           ingredient,
                           servings,
@@ -251,18 +284,23 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
                       {ingredient.productId ? (
                         <em>
                           {product && quantity !== null
-                            ? `Buying ${quantity} × ${product.unit}`
-                            : "Pack measurement or product unavailable"}
+                            ? t("Buying {quantity} × {unit}", {
+                                quantity,
+                                unit: t(product.unit),
+                              })
+                            : t("Pack measurement or product unavailable")}
                         </em>
                       ) : (
-                        <em>Pantry item · not added to basket</em>
+                        <em>{t("Pantry item · not added to basket")}</em>
                       )}
                     </span>
                   </label>
                   <div>
                     {variants.length > 1 && (
                       <select
-                        aria-label={`Pack for ${ingredient.name}`}
+                        aria-label={t("Pack for {name}", {
+                          name: t(ingredient.name),
+                        })}
                         value={packs[ingredient.id]}
                         onChange={(e) =>
                           setPacks((previous) => ({
@@ -273,7 +311,7 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
                       >
                         {variants.map((p) => (
                           <option value={p.id} key={p.id}>
-                            {p.unit}
+                            {t(p.unit)}
                           </option>
                         ))}
                       </select>
@@ -284,7 +322,7 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
                     {ingredient.productId &&
                       (!product || product.stock < (quantity || 1)) && (
                         <small className="list-stock-note">
-                          Currently unavailable in this quantity
+                          {t("Currently unavailable in this quantity")}
                         </small>
                       )}
                   </div>
@@ -292,25 +330,27 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
               );
             })}
           </div>
-          <p className="recipe-allergen-note">{recipe.allergenNote}</p>
+          <p className="recipe-allergen-note">{t(recipe.allergenNote)}</p>
         </section>
         <aside className="recipe-purchase-card">
           <span className="round-icon">
             <ShoppingBag size={26} />
           </span>
-          <h2>A basket for this recipe</h2>
-          <p>Full packs of your selected ingredients.</p>
+          <h2>{t("A basket for this recipe")}</h2>
+          <p>{t("Full packs of your selected ingredients.")}</p>
           <div className="recipe-basket-total">
-            <span>Products subtotal</span>
+            <span>{t("Products subtotal")}</span>
             <strong>{money(subtotal)}</strong>
           </div>
           <small>
-            {chosen.length} selected ingredients · delivery calculated in basket
+            {chosen.length}
+            {t(" selected ingredients · delivery calculated in basket")}
           </small>
           {incomplete && (
             <p className="selection-message">
-              Some selected ingredients are unavailable or have no pack
-              measurement. Untick them or choose another pack.
+              {t(
+                "Some selected ingredients are unavailable or have no pack measurement. Untick them or choose another pack.",
+              )}
             </p>
           )}
           <AddSelection
@@ -319,27 +359,31 @@ export function RecipeDetails({ recipe }: { recipe: Recipe }) {
             label="Add selected ingredients"
           />
           <Link href="/cart" className="button outline">
-            Review my basket <ArrowRight size={16} />
+            {t("Review my basket ")}
+            <ArrowRight size={16} />
           </Link>
           <p className="recipe-pack-explainer">
-            <Check size={15} /> You buy whole packs. Extras can stay for your
-            next meal; pantry items are not included.
+            <Check size={15} />
+            {t(
+              " You buy whole packs. Extras can stay for your next meal; pantry items are not included.",
+            )}
           </p>
         </aside>
         <section className="recipe-method surface-card">
-          <span className="eyebrow">A FEW SIMPLE STEPS</span>
-          <h2>Let’s make something good.</h2>
+          <span className="eyebrow">{t("A FEW SIMPLE STEPS")}</span>
+          <h2>{t("Let’s make something good.")}</h2>
           <ol>
             {recipe.steps.map((step, i) => (
               <li key={step}>
                 <span>{i + 1}</span>
-                <p>{step}</p>
+                <p>{t(step)}</p>
               </li>
             ))}
           </ol>
           <p className="muted">
-            Preparation times are approximate. Adjust seasoning to taste and
-            follow product storage instructions.
+            {t(
+              "Preparation times are approximate. Adjust seasoning to taste and follow product storage instructions.",
+            )}
           </p>
         </section>
       </div>

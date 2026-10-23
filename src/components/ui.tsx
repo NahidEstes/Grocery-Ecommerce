@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -44,12 +46,13 @@ const icons: Record<string, typeof Leaf> = {
   paw: PawPrint,
 };
 export function CategorySidebar({ active = "" }: { active?: string }) {
+  const { t } = useLanguage();
   const { settings } = useShop();
   return (
-    <aside className="category-sidebar" aria-label="Grocery categories">
+    <aside className="category-sidebar" aria-label={t("Grocery categories")}>
       <Link href="/products" className="all-categories">
         <Grid2X2 size={20} />
-        All Categories
+        {t("All Categories")}
       </Link>
       <nav>
         {settings.categories.map((category) => {
@@ -70,7 +73,7 @@ export function CategorySidebar({ active = "" }: { active?: string }) {
                 color={info?.color || "#358830"}
                 strokeWidth={2.1}
               />
-              <span>{category.name}</span>
+              <span>{t(category.name)}</span>
               <ChevronRight size={14} />
             </Link>
           );
@@ -79,11 +82,11 @@ export function CategorySidebar({ active = "" }: { active?: string }) {
       <div className="sidebar-note">
         <Leaf size={25} />
         <strong>
-          A little fresher.
+          {t("A little fresher.")}
           <br />
-          Every single day.
+          {t("Every single day.")}
         </strong>
-        <p>Good food for your everyday.</p>
+        <p>{t("Good food for your everyday.")}</p>
       </div>
     </aside>
   );
@@ -95,11 +98,12 @@ export function ProductImage({
   product: Product;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const row = Math.floor(product.atlas / 4);
   return (
     <div
       role="img"
-      aria-label={product.name}
+      aria-label={t(product.name)}
       className={`product-image ${className}`}
       style={{
         ...(product.imageUrl
@@ -135,14 +139,15 @@ export function QuantityControl({
   compact?: boolean;
   disabled?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <div
       className={`quantity-control ${compact ? "compact" : ""}`}
-      aria-label={label}
+      aria-label={t(label)}
     >
       <button
         type="button"
-        aria-label={`Decrease ${label}`}
+        aria-label={t("Decrease {name}", { name: t(label) })}
         disabled={disabled || quantity <= 0}
         onClick={() => onChange(quantity - 1)}
       >
@@ -151,7 +156,7 @@ export function QuantityControl({
       <span aria-live="polite">{quantity}</span>
       <button
         type="button"
-        aria-label={`Increase ${label}`}
+        aria-label={t("Increase {name}", { name: t(label) })}
         disabled={disabled || quantity >= max}
         onClick={() => onChange(quantity + 1)}
       >
@@ -161,6 +166,7 @@ export function QuantityControl({
   );
 }
 export function ProductCard({ product }: { product: Product }) {
+  const { t, locale } = useLanguage();
   const { items, addItem, setQuantity, saved, toggleSaved, ready } = useShop();
   const quantity =
     items.find((item) => item.productId === product.id)?.quantity || 0;
@@ -171,11 +177,17 @@ export function ProductCard({ product }: { product: Product }) {
     <article className="product-card">
       <div className="product-visual">
         {discount > 0 && (
-          <span className="discount-badge">{discount}% OFF</span>
+          <span className="discount-badge">
+            {discount}
+            {t("% OFF")}
+          </span>
         )}
         <button
           className={`save-product ${saved.includes(product.id) ? "saved" : ""}`}
-          aria-label={`${saved.includes(product.id) ? "Unsave" : "Save"} ${product.name}`}
+          aria-label={t(
+            saved.includes(product.id) ? "Unsave {name}" : "Save {name}",
+            { name: t(product.name) },
+          )}
           aria-pressed={saved.includes(product.id)}
           onClick={() => toggleSaved(product.id)}
         >
@@ -186,17 +198,17 @@ export function ProductCard({ product }: { product: Product }) {
         </button>
         <Link
           href={`/products/${product.slug}`}
-          aria-label={`View ${product.name}`}
+          aria-label={t("View {name}", { name: t(product.name) })}
         >
           <ProductImage product={product} />
         </Link>
       </div>
       <Link className="product-name" href={`/products/${product.slug}`}>
-        {product.name}
+        {t(product.name)}
       </Link>
-      <p className="product-unit">{product.unit}</p>
-      {unitPrice(product) && (
-        <small className="unit-comparison">{unitPrice(product)}</small>
+      <p className="product-unit">{t(product.unit)}</p>
+      {unitPrice(product, locale) && (
+        <small className="unit-comparison">{unitPrice(product, locale)}</small>
       )}
       <div className="product-card-bottom">
         <div className="product-prices">
@@ -216,25 +228,30 @@ export function ProductCard({ product }: { product: Product }) {
             className="add-product"
             disabled={!ready || product.stock < 1 || product.active === false}
             onClick={() => addItem(product.id)}
-            aria-label={`Add ${product.name} to cart`}
+            aria-label={t("Add {name} to cart", { name: t(product.name) })}
           >
             <Plus size={24} />
           </button>
         )}
       </div>
-      {product.stock < 1 && <small className="form-error">Out of stock</small>}
+      {product.stock < 1 && (
+        <small className="form-error">{t("Out of stock")}</small>
+      )}
     </article>
   );
 }
 export function Benefits() {
+  const { t } = useLanguage();
   const { settings } = useShop();
   return (
-    <section className="benefits" aria-label="Shopping benefits">
+    <section className="benefits" aria-label={t("Shopping benefits")}>
       {[
         {
           icon: Truck,
           title: "Free delivery",
-          text: `On orders of ${money(settings.freeDeliveryAt)}+`,
+          text: t("On orders of {amount}+", {
+            amount: money(settings.freeDeliveryAt),
+          }),
         },
         {
           icon: PackageCheck,
@@ -255,8 +272,8 @@ export function Benefits() {
         <div key={title}>
           <Icon size={31} />
           <span>
-            <strong>{title}</strong>
-            <small>{text}</small>
+            <strong>{t(title)}</strong>
+            <small>{t(text)}</small>
           </span>
         </div>
       ))}
@@ -268,16 +285,17 @@ export function Breadcrumb({
 }: {
   items: { label: string; href?: string }[];
 }) {
+  const { t } = useLanguage();
   return (
-    <nav className="breadcrumb" aria-label="Breadcrumb">
-      <Link href="/">Home</Link>
+    <nav className="breadcrumb" aria-label={t("Breadcrumb")}>
+      <Link href="/">{t("Home")}</Link>
       {items.map((item, index) => (
         <span key={index}>
           <ChevronRight size={14} />
           {item.href ? (
-            <Link href={item.href}>{item.label}</Link>
+            <Link href={item.href}>{t(item.label)}</Link>
           ) : (
-            <span aria-current="page">{item.label}</span>
+            <span aria-current="page">{t(item.label)}</span>
           )}
         </span>
       ))}
@@ -295,15 +313,16 @@ export function SectionTitle({
   href?: string;
   linkText?: string;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="section-title">
       <div>
-        <h2>{title}</h2>
-        {subtitle && <p>{subtitle}</p>}
+        <h2>{t(title)}</h2>
+        {subtitle && <p>{t(subtitle)}</p>}
       </div>
       {href && (
         <Link href={href}>
-          {linkText}
+          {t(linkText)}
           <ArrowRight size={16} />
         </Link>
       )}
@@ -321,6 +340,7 @@ export function Modal({
   onClose: () => void;
   wide?: boolean;
 }) {
+  const { t } = useLanguage();
   const ref = useRef<HTMLDialogElement>(null);
   const close = useRef(onClose);
   close.current = onClose;
@@ -349,11 +369,11 @@ export function Modal({
       }}
     >
       <div className="modal-heading">
-        <h2>{title}</h2>
+        <h2>{t(title)}</h2>
         <button
           className="icon-button"
           onClick={onClose}
-          aria-label="Close dialog"
+          aria-label={t("Close dialog")}
         >
           <X size={22} />
         </button>

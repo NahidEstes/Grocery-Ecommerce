@@ -17,6 +17,8 @@ If port 3000 is occupied, run the web app with `npm run dev:web -- --port 3001` 
 
 ## What is included
 
+The header has a keyboard-accessible **English / বাংলা** selector on desktop and mobile. It updates shopping navigation, bundled homepage/catalog copy, cart, checkout, accounts, lists, recipes and orders in place. A one-year `freshcart-language` cookie initializes the server-rendered language on subsequent visits, with English as the default. Switching languages keeps forms, account state and the basket mounted. Dates use the selected language and Dhaka time. Translation copy lives in `src/lib/locales/bn.json`; new merchant-written content and unknown service messages retain their original text until a translation is added. The admin editing workspace retains its English interface.
+
 | Page                   | Features                                                                                                                                                                                                                |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/`                    | Category photo tiles, delivery coverage checker, itemized breakfast/weekly/family baskets, offers, seasonal and new-arrival shelves, actual completed-purchase popularity, moderated verified reviews, FAQ              |
@@ -32,6 +34,37 @@ If port 3000 is occupied, run the web app with `npm run dev:web -- --port 3001` 
 The site preserves the selected orange/green design. Mobile bottom navigation connects Home, Categories, Cart and Orders. Prices per kg/litre/piece are calculated only when a pack measurement is available. Supplier-specific origin, nutrition, allergen and storage facts remain empty until entered. No customer reviews or sales figures are fabricated. Popularity and revenue exclude demo/sandbox orders; review eligibility requires a real delivered purchase. Empty shelves and reviews show honest empty states.
 
 The starting catalog is sample data with generated illustrative photos, 12 base products and 4 extra pack SKUs. Pack SKUs have independent inventory. Add banana, apple, milk and bread for the reference basket: subtotal ৳460 plus ৳40 delivery = ৳500. Default `FRESH10` discounts 10%, capped at ৳100; the admin can change these rules. Bundle prices sum their component products and do not imply a special discount.
+
+## Store management workspace
+
+The administration workspace now includes the following tools. A section can be opened directly with `/admin?section=recipes`, `homepage`, `catalog-tools`, `inventory`, `reports`, `search`, `returns`, `team` or `activity`. Existing products, orders, settings, reviews and support tabs remain available.
+
+- **Recipe management:** create/edit/publish/unpublish recipes; set base servings, preparation time, product-linked ingredient measurements, pantry ingredients, steps, allergen notes and uploaded cover photos. Changes persist and published recipes appear on `/recipes` and their own public pages. Recipe version checks reject conflicting edits. No missing supplier facts are invented.
+- **Homepage editor:** hero copy/photo/button, two promotional banners, deal heading, regular-purchase and active-order toggles, editable section headings, visibility and ordering. The homepage settings and existing storefront section controls stay synchronized. Saves use a version check and the initial public page receives saved content from the server.
+- **Products:** per-SKU alert thresholds, search alternatives, upload/preview of PNG/JPEG/WebP photos up to 2 MB, and a reason for stock edits. The bulk workspace exports CSV, imports up to 100 rows/200 KB, validates a preview without mutating stock, and atomically applies reviewed changes. Existing SKUs require exported versions. CSV export escapes spreadsheet formulas; CSV imports support quoted commas/newlines and reject malformed numeric updates. New SKUs can specify the illustrative atlas number or an uploaded/HTTPS image URL.
+- **Orders:** internal notes, actor/time/status history, and printable invoice or packing-list views at `/admin/print/[reference]?kind=invoice` or `packing`. Notes and administrative activity are not included in customer order responses. Historical orders have no fabricated activity before tracking was introduced.
+- **Reports:** today/7/30/90-day periods, previous-period comparison, daily sales charts, and promo applications/delivered-order/discount/sales counts. Dhaka calendar boundaries are used. Customer records and demo/sandbox data are selectable separately. Sales mean delivered COD or verified online order totals, before refunds; this is not a payment settlement or profit report. Older orders without a stored promo code remain unattributed.
+- **Inventory:** configured low-stock alerts and movements for manual edits, batches, checkout reservations, cancellations and inspected returns. Changes record time, operator and reason. Automatic checkout stock entries identify the system rather than disclosing customer names to product editors.
+- **Search:** store-managed Bengali/English/local-name aliases tied to real SKUs, plus aggregated unsuccessful catalog searches with no account identity. Built-in bilingual vocabulary remains available. Search recording is rate limited.
+- **Reviews/support:** text/status filters, priority, permitted staff assignment and resolution duration. Important actions are recorded in the activity history.
+- **Returns/refunds:** customers or guest receipt holders can request affected packs from delivered orders. Staff review, reject, approve, receive/optionally restock inspected resaleable goods, queue refunds and record externally completed refunds with method and receipt reference. Purchased quantities and prior requests cap eligibility; discounted product value excludes delivery. Version checks and transactions prevent duplicate restoration. This workflow **does not transfer money or call a refund gateway**. Merchant reconciliation and actual payment occur outside the panel; recorded refunds do not automatically cancel paid orders.
+- **Editor feedback:** success/error notices, a sticky save action and in-panel Keep editing/Discard changes choices protect drafts when switching sections. Browser refresh/close retains the normal browser unsaved-change warning. Photo uploads must finish before a form can be saved.
+
+### Staff access
+
+| Role          | Access                                                                                         |
+| ------------- | ---------------------------------------------------------------------------------------------- |
+| Administrator | All tools, including staff role assignment                                                     |
+| Manager       | Reports, products, content, orders, reviews, support, returns and activity; no role assignment |
+| Editor        | Products, recipes/homepage/search content and review moderation                                |
+| Fulfilment    | Orders, printing, notes and customer support                                                   |
+| Customer      | Own account/orders/lists and eligible return requests                                          |
+
+All permissions are enforced by the API, including existing endpoints. Registration always creates a customer. Administrators can change an already registered account's role after reviewing it in Staff & permissions; the last administrator and self-demotion are protected. No invitations or external email messages are sent.
+
+Additional management endpoints include `/api/admin/content`, `/recipes/:slug`, `/products/preview`, `/products/batch`, `/inventory`, `/reports`, `/activity`, `/team`, `/cases`, `/returns`, `/orders/:reference/operations`, `/orders/:reference/notes`, `/orders/:reference/print` and `/media` under the `/api/admin` base. Public published recipes/content use `/api/recipes` and `/api/content`. Uploaded images are public assets served from `/api/media/:id` and persist in the same configured repository as other commerce entities; do not upload private documents there.
+
+The filesystem demo skips writes for read-only transactions and retries transient Windows replacement locks without deleting the existing store. Production MongoDB retains its transaction behavior. Type checking uses a fresh compiler pass to avoid stale incremental diagnostics alongside the development server.
 
 ## Accounts and administrator setup
 

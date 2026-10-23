@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { ArrowUpLeft, Search, ArrowRight } from "lucide-react";
@@ -17,6 +19,7 @@ import { money } from "@/lib/commerce";
 import { ProductImage } from "./ui";
 
 export function SmartSearch() {
+  const { t } = useLanguage();
   const { catalog } = useShop();
   const router = useRouter(),
     path = usePathname();
@@ -84,7 +87,7 @@ export function SmartSearch() {
       <Search size={19} />
       <input
         role="combobox"
-        aria-label="Search groceries"
+        aria-label={t("Search groceries")}
         aria-autocomplete="list"
         aria-expanded={expanded}
         aria-controls={expanded ? id : undefined}
@@ -101,20 +104,20 @@ export function SmartSearch() {
         }}
         onFocus={() => setOpen(true)}
         onKeyDown={keys}
-        placeholder="Search groceries… আলু, milk, eggs"
+        placeholder={t("Search groceries… আলু, milk, eggs")}
         autoComplete="off"
         maxLength={100}
       />
-      <button type="submit" aria-label="Search">
+      <button type="submit" aria-label={t("Search")}>
         <Search size={22} />
       </button>
       {expanded && (
         <div className="search-suggestions">
           <div className="suggestion-heading">
-            <span>FRESH FINDS</span>
+            <span>{t("FRESH FINDS")}</span>
             <small>বাংলা / English</small>
           </div>
-          <div id={id} role="listbox" aria-label="Suggested groceries">
+          <div id={id} role="listbox" aria-label={t("Suggested groceries")}>
             {matches.map((p, index) => (
               <Link
                 role="option"
@@ -128,10 +131,10 @@ export function SmartSearch() {
               >
                 <ProductImage product={p} />
                 <span>
-                  <strong>{p.name}</strong>
+                  <strong>{t(p.name)}</strong>
                   <small>
-                    {p.unit}
-                    {p.stock < 1 ? " · Out of stock" : ""}
+                    {t(p.unit)}
+                    {t(p.stock < 1 ? " · Out of stock" : "")}
                   </small>
                 </span>
                 <b>{money(p.price)}</b>
@@ -142,8 +145,8 @@ export function SmartSearch() {
           {!matches.length && (
             <div className="search-empty">
               <Search size={23} />
-              <strong>No matching groceries yet</strong>
-              <span>Try another name, such as আলু, দুধ or apple.</span>
+              <strong>{t("No matching groceries yet")}</strong>
+              <span>{t("Try another name, such as আলু, দুধ or apple.")}</span>
             </div>
           )}
           <Link
@@ -151,10 +154,11 @@ export function SmartSearch() {
             href={`/products?q=${encodeURIComponent(query.trim())}`}
             onClick={() => setOpen(false)}
           >
-            See all results for “{query.trim()}” <ArrowRight size={15} />
+            {t("See all results for “")}
+            {query.trim()}” <ArrowRight size={15} />
           </Link>
           <div className="search-keyboard-hint">
-            ↑ ↓ to explore · Enter to open · Esc to close
+            {t("↑ ↓ to explore · Enter to open · Esc to close")}
           </div>
         </div>
       )}

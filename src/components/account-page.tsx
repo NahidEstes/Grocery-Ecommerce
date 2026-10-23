@@ -1,4 +1,7 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
+import { isStaff } from "@/lib/management";
 import Link from "next/link";
 import { useState, useEffect, type FormEvent } from "react";
 import {
@@ -22,6 +25,7 @@ import type { SavedAddress } from "@/lib/orders";
 import { AddressForm } from "./address-form";
 import { Breadcrumb } from "./ui";
 export function AccountPage() {
+  const { t } = useLanguage();
   const {
     user,
     ready,
@@ -128,7 +132,7 @@ export function AccountPage() {
   if (!ready)
     return (
       <div className="page-container loading-state">
-        Opening your shopping space…
+        {t("Opening your shopping space…")}
       </div>
     );
   return (
@@ -138,9 +142,12 @@ export function AccountPage() {
         <>
           <div className="account-welcome">
             <div>
-              <span className="eyebrow">YOUR EVERYDAY, A LITTLE EASIER</span>
+              <span className="eyebrow">
+                {t("YOUR EVERYDAY, A LITTLE EASIER")}
+              </span>
               <h1>
-                Hello, {user.name.split(" ")[0]}
+                {t("Hello, ")}
+                {user.name.split(" ")[0]}
                 <span className="heading-dot">.</span>
               </h1>
               <p>{user.email}</p>
@@ -151,12 +158,12 @@ export function AccountPage() {
                 void signOut().catch((e) => setError(e.message));
               }}
             >
-              Sign out
+              {t("Sign out")}
             </button>
           </div>
           {error && (
             <p className="form-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <div className="account-dashboard">
@@ -164,7 +171,7 @@ export function AccountPage() {
               <span className="round-icon">
                 <UserRound />
               </span>
-              <h2>Your profile</h2>
+              <h2>{t("Your profile")}</h2>
               <form
                 className="enhance-form"
                 onSubmit={async (e) => {
@@ -184,7 +191,7 @@ export function AccountPage() {
                 }}
               >
                 <label>
-                  Full name
+                  {t("Full name")}
                   <input
                     name="name"
                     defaultValue={user.name}
@@ -194,43 +201,49 @@ export function AccountPage() {
                   />
                 </label>
                 <label>
-                  Email
+                  {t("Email")}
                   <input value={user.email} disabled />
                 </label>
                 <button className="button primary" disabled={busy}>
-                  Save profile
+                  {t("Save profile")}
                 </button>
               </form>
               <Link className="subtle-link" href="/orders">
-                <Package size={17} /> View your orders <ArrowRight size={15} />
+                <Package size={17} />
+                {t(" View your orders ")}
+                <ArrowRight size={15} />
               </Link>
               <Link className="subtle-link" href="/lists">
-                <Package size={17} /> My shopping lists <ArrowRight size={15} />
+                <Package size={17} />
+                {t(" My shopping lists ")}
+                <ArrowRight size={15} />
               </Link>
-              {user.role === "admin" && (
+              {isStaff(user.role) && (
                 <Link className="subtle-link" href="/admin">
-                  <ShieldCheck size={17} /> Open admin dashboard{" "}
-                  <ArrowRight size={15} />
+                  <ShieldCheck size={17} />
+                  {t(" Open admin dashboard")} <ArrowRight size={15} />
                 </Link>
               )}
             </section>
             <section className="surface-card">
               <div className="card-title">
                 <div>
-                  <h2>Your delivery addresses</h2>
-                  <p>Available whenever you sign in.</p>
+                  <h2>{t("Your delivery addresses")}</h2>
+                  <p>{t("Available whenever you sign in.")}</p>
                 </div>
                 <button
                   className="button outline"
                   disabled={user.addresses.length >= 8}
                   onClick={() => setEditing(null)}
                 >
-                  <Plus size={17} /> Add address
+                  <Plus size={17} />
+                  {t(" Add address")}
                 </button>
               </div>
               {!user.addresses.length && (
                 <div className="quiet-empty">
-                  <MapPin /> Add your first delivery address.
+                  <MapPin />
+                  {t(" Add your first delivery address.")}
                 </div>
               )}
               <div className="account-addresses">
@@ -241,14 +254,16 @@ export function AccountPage() {
                     </span>
                     <div>
                       <strong>
-                        {a.label} · {a.name}
+                        {t(a.label)} · {a.name}
                       </strong>
                       <p>{a.address}</p>
                       <small>
                         {a.area} · {a.phone}
                       </small>
                       <div className="inline-actions">
-                        <button onClick={() => setEditing(a)}>Edit</button>
+                        <button onClick={() => setEditing(a)}>
+                          {t("Edit")}
+                        </button>
                         <button
                           aria-label={`Remove ${a.label} address`}
                           onClick={() => {
@@ -257,7 +272,8 @@ export function AccountPage() {
                             ).catch((e) => setError(e.message));
                           }}
                         >
-                          <Trash2 size={13} /> Remove
+                          <Trash2 size={13} />
+                          {t(" Remove")}
                         </button>
                       </div>
                     </div>
@@ -284,22 +300,24 @@ export function AccountPage() {
       ) : (
         <div className="auth-layout">
           <section className="auth-story">
-            <span className="eyebrow">WELCOME TO YOUR FRESH SPACE</span>
+            <span className="eyebrow">{t("WELCOME TO YOUR FRESH SPACE")}</span>
             <h1>
-              A little less effort.
+              {t("A little less effort.")}
               <br />
-              <em>A lot more fresh.</em>
+              <em>{t("A lot more fresh.")}</em>
             </h1>
             <p>
-              Your favourite groceries, delivery addresses and orders, together
-              in one place.
+              {t(
+                "Your favourite groceries, delivery addresses and orders, together in one place.",
+              )}
             </p>
             <img
               src="/images/grocery-hero.png"
-              alt="A basket of colourful fresh groceries"
+              alt={t("A basket of colourful fresh groceries")}
             />
             <div>
-              <Leaf size={20} /> Good food. Brighter days.
+              <Leaf size={20} />
+              {t(" Good food. Brighter days.")}
             </div>
           </section>
           <section className="auth-card">
@@ -307,22 +325,26 @@ export function AccountPage() {
               <LockKeyhole size={26} />
             </span>
             <h2>
-              {mode === "register"
-                ? "Make yourself at home"
-                : mode === "forgot"
-                  ? "Forgot your password?"
-                  : mode === "reset"
-                    ? "Choose a new password"
-                    : "Welcome back"}
+              {t(
+                mode === "register"
+                  ? "Make yourself at home"
+                  : mode === "forgot"
+                    ? "Forgot your password?"
+                    : mode === "reset"
+                      ? "Choose a new password"
+                      : "Welcome back",
+              )}
             </h2>
             <p>
-              {mode === "register"
-                ? "Create your FreshCart account."
-                : mode === "forgot"
-                  ? "We’ll email you a secure reset link."
-                  : mode === "reset"
-                    ? "Use at least 10 characters."
-                    : "Sign in for an easier everyday shop."}
+              {t(
+                mode === "register"
+                  ? "Create your FreshCart account."
+                  : mode === "forgot"
+                    ? "We’ll email you a secure reset link."
+                    : mode === "reset"
+                      ? "Use at least 10 characters."
+                      : "Sign in for an easier everyday shop.",
+              )}
             </p>
             {["login", "register"].includes(mode) && (
               <div className="auth-tabs">
@@ -333,7 +355,7 @@ export function AccountPage() {
                     setError("");
                   }}
                 >
-                  Sign in
+                  {t("Sign in")}
                 </button>
                 <button
                   className={mode === "register" ? "active" : ""}
@@ -342,14 +364,14 @@ export function AccountPage() {
                     setError("");
                   }}
                 >
-                  Create account
+                  {t("Create account")}
                 </button>
               </div>
             )}
             <form className="enhance-form" onSubmit={submit} key={mode}>
               {mode === "register" && (
                 <label>
-                  Full name
+                  {t("Full name")}
                   <input
                     name="name"
                     autoComplete="name"
@@ -361,7 +383,7 @@ export function AccountPage() {
               )}
               {mode !== "reset" ? (
                 <label>
-                  Email address
+                  {t("Email address")}
                   <input
                     name="email"
                     type="email"
@@ -375,7 +397,7 @@ export function AccountPage() {
               )}
               {mode !== "forgot" && (
                 <label>
-                  Password
+                  {t("Password")}
                   <input
                     name="password"
                     type="password"
@@ -390,7 +412,7 @@ export function AccountPage() {
               )}
               {(error || sessionError) && (
                 <p className="form-error" role="alert">
-                  {error || sessionError}
+                  {t(error || sessionError)}
                 </p>
               )}
               {message && (
@@ -399,15 +421,17 @@ export function AccountPage() {
                 </p>
               )}
               <button className="button primary" disabled={busy}>
-                {busy
-                  ? "Please wait…"
-                  : mode === "register"
-                    ? "Create account"
-                    : mode === "forgot"
-                      ? "Send reset link"
-                      : mode === "reset"
-                        ? "Update password"
-                        : "Sign in"}
+                {t(
+                  busy
+                    ? "Please wait…"
+                    : mode === "register"
+                      ? "Create account"
+                      : mode === "forgot"
+                        ? "Send reset link"
+                        : mode === "reset"
+                          ? "Update password"
+                          : "Sign in",
+                )}
                 <ArrowRight size={17} />
               </button>
             </form>
@@ -419,7 +443,7 @@ export function AccountPage() {
                   setError("");
                 }}
               >
-                Forgot password?
+                {t("Forgot password?")}
               </button>
             ) : (
               mode !== "register" && (
@@ -431,13 +455,13 @@ export function AccountPage() {
                     setMessage("");
                   }}
                 >
-                  Back to sign in
+                  {t("Back to sign in")}
                 </button>
               )
             )}
             <p className="auth-privacy">
-              <ShieldCheck size={15} /> Your account uses a secure, private
-              session.
+              <ShieldCheck size={15} />
+              {t(" Your account uses a secure, private session.")}
             </p>
           </section>
         </div>

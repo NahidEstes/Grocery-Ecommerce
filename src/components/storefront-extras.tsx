@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -19,8 +21,14 @@ import type { Product } from "@/lib/catalog";
 import { ProductCard, ProductImage, SectionTitle } from "./ui";
 import { deliveryDays } from "@/lib/orders";
 import { RecipeShelf } from "./recipes";
+import type { HomeSectionId } from "@/lib/management";
 
-export function DeliveryChecker() {
+export function DeliveryChecker({
+  title = "Do we deliver to your door?",
+}: {
+  title?: string;
+}) {
+  const { t } = useLanguage();
   const { settings, area, setArea, storeError } = useShop();
   const [selected, setSelected] = useState(area),
     [checked, setChecked] = useState(false);
@@ -34,9 +42,9 @@ export function DeliveryChecker() {
         <Truck size={28} />
       </span>
       <div>
-        <span className="eyebrow">FRESHNESS, A LITTLE CLOSER</span>
-        <h2>Do we deliver to your door?</h2>
-        <p>Check your area before you fill your basket.</p>
+        <span className="eyebrow">{t("FRESHNESS, A LITTLE CLOSER")}</span>
+        <h2>{t(title)}</h2>
+        <p>{t("Check your area before you fill your basket.")}</p>
       </div>
       <form
         onSubmit={(e) => {
@@ -46,7 +54,7 @@ export function DeliveryChecker() {
         }}
       >
         <label className="sr-only" htmlFor="coverage-area">
-          Delivery area
+          {t("Delivery area")}
         </label>
         <select
           id="coverage-area"
@@ -56,14 +64,17 @@ export function DeliveryChecker() {
             setChecked(false);
           }}
         >
-          <option value="">Choose an area</option>
+          <option value="">{t("Choose an area")}</option>
           {settings.zones.map((z) => (
-            <option key={z.name}>{z.name}</option>
+            <option value={z.name} key={z.name}>
+              {t(z.name)}
+            </option>
           ))}
-          <option value="other">Another area</option>
+          <option value="other">{t("Another area")}</option>
         </select>
         <button className="button primary">
-          Check area <ArrowRight size={16} />
+          {t("Check area ")}
+          <ArrowRight size={16} />
         </button>
       </form>
       {checked && (
@@ -71,8 +82,8 @@ export function DeliveryChecker() {
           {storeError
             ? storeError
             : zone?.enabled
-              ? `${selected}: ${money(zone.fee)} delivery, free from ${money(settings.freeDeliveryAt)}. ${available ? `Next available: ${available.label}, ${available.short} (Dhaka time).` : "No delivery slots currently available."} ${zone.estimate}`
-              : "We do not currently deliver to this area."}
+              ? `${t("{area}: {fee} delivery, free from {threshold}.", { area: t(selected), fee: money(zone.fee), threshold: money(settings.freeDeliveryAt) })} ${available ? t("Next available: {date} (Dhaka time).", { date: `${t(available.label)}, ${available.short}` }) : t("No delivery slots currently available.")} ${t(zone.estimate)}`
+              : t("We do not currently deliver to this area.")}
         </p>
       )}
     </section>
@@ -87,6 +98,7 @@ function Shelf({
   subtitle: string;
   products: Product[];
 }) {
+  const { t } = useLanguage();
   return (
     <section className="extra-shelf">
       <SectionTitle title={title} subtitle={subtitle} href="/products" />
@@ -97,13 +109,32 @@ function Shelf({
       </div>
       {!products.length && (
         <div className="quiet-empty">
-          Fresh picks will appear here when the store adds them.
+          {t("Fresh picks will appear here when the store adds them.")}
         </div>
       )}
     </section>
   );
 }
 export function HomeExtras() {
+  const { content } = useShop();
+  return (
+    <div className="home-extras managed-home-sections">
+      {content.sections
+        .filter((s) => s.enabled)
+        .map((s) => (
+          <HomeExtraSection key={s.id} section={s.id} title={s.title} />
+        ))}
+    </div>
+  );
+}
+function HomeExtraSection({
+  section,
+  title,
+}: {
+  section: HomeSectionId;
+  title: string;
+}) {
+  const { t } = useLanguage();
   const { settings, catalog, addMany, popularIds, reviews, storeError, ready } =
     useShop();
   const available = catalog.filter((p) => !p.parentId && p.active !== false);
@@ -112,45 +143,52 @@ export function HomeExtras() {
     .filter((p) => p.createdAt)
     .sort((a, b) => b.createdAt!.localeCompare(a.createdAt!));
   return (
-    <div className="home-extras">
-      <SectionTitle
-        title="A fresh start in every aisle"
-        subtitle="Your everyday essentials, just a tap away."
-        href="/products"
-        linkText="All groceries"
-      />
-      <div className="category-tiles">
-        {settings.categories.map((c) => {
-          const p = catalog.find(
-            (p) =>
-              p.category === c.slug ||
-              (c.slug === "produce" &&
-                ["fruits", "vegetables"].includes(p.category)),
-          );
-          return (
-            <Link href={`/products?category=${c.slug}`} key={c.slug}>
-              <ProductImage
-                product={p || ({ name: c.name, atlas: c.atlas } as Product)}
-              />
-              <strong>{c.name}</strong>
-              <span>
-                Explore aisle <ArrowRight size={13} />
-              </span>
-            </Link>
-          );
-        })}
-      </div>
-      <DeliveryChecker />
-      {storeError && (
+    <div className="managed-extra-section">
+      {section === "categories" && (
+        <>
+          <SectionTitle
+            title={title}
+            subtitle={t("Your everyday essentials, just a tap away.")}
+            href="/products"
+            linkText={t("All groceries")}
+          />
+          <div className="category-tiles">
+            {settings.categories.map((c) => {
+              const p = catalog.find(
+                (p) =>
+                  p.category === c.slug ||
+                  (c.slug === "produce" &&
+                    ["fruits", "vegetables"].includes(p.category)),
+              );
+              return (
+                <Link href={`/products?category=${c.slug}`} key={c.slug}>
+                  <ProductImage
+                    product={p || ({ name: c.name, atlas: c.atlas } as Product)}
+                  />
+                  <strong>{t(c.name)}</strong>
+                  <span>
+                    {t("Explore aisle ")}
+                    <ArrowRight size={13} />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
+      {section === "coverage" && <DeliveryChecker title={title} />}
+      {section === "coverage" && storeError && (
         <p className="form-error" role="alert">
-          {storeError}
+          {t(storeError)}
         </p>
       )}
-      {settings.homeSections.bundles && (
+      {section === "bundles" && (
         <section className="bundle-section">
           <SectionTitle
-            title="Good things come together"
-            subtitle="Thoughtful baskets for your everyday. Each item, clearly priced."
+            title={title}
+            subtitle={t(
+              "Thoughtful baskets for your everyday. Each item, clearly priced.",
+            )}
           />
           <div className="bundle-grid">
             {settings.bundles
@@ -185,19 +223,22 @@ export function HomeExtras() {
                             ),
                         )}
                     </div>
-                    <span className="eyebrow">EVERYDAY BASKET</span>
-                    <h3>{bundle.name}</h3>
-                    <p>{bundle.description}</p>
+                    <span className="eyebrow">{t("EVERYDAY BASKET")}</span>
+                    <h3>{t(bundle.name)}</h3>
+                    <p>{t(bundle.description)}</p>
                     <details>
-                      <summary>{items.length} products · View basket</summary>
+                      <summary>
+                        {items.length}
+                        {t(" products · View basket")}
+                      </summary>
                       <ul>
                         {items.map((i) => (
                           <li key={i.productId}>
                             {i.quantity} ×{" "}
-                            {i.product?.name || "Unavailable product"}{" "}
+                            {t(i.product?.name || "Unavailable product")}{" "}
                             {i.product && (
                               <small>
-                                {i.product.unit} ·{" "}
+                                {t(i.product.unit)} ·{" "}
                                 {money(i.product.price * i.quantity)}
                               </small>
                             )}
@@ -212,7 +253,7 @@ export function HomeExtras() {
                         className="button primary"
                         onClick={() => addMany(bundle.items, true)}
                       >
-                        {inStock ? "Add basket" : "Unavailable"}{" "}
+                        {t(inStock ? "Add basket" : "Unavailable")}{" "}
                         <ShoppingCart size={16} />
                       </button>
                     </div>
@@ -222,26 +263,26 @@ export function HomeExtras() {
           </div>
         </section>
       )}
-      <RecipeShelf />
-      {settings.homeSections.seasonal && (
+      {section === "recipes" && <RecipeShelf title={title} />}
+      {section === "seasonal" && (
         <Shelf
-          title="In season, full of goodness"
-          subtitle="Seasonal picks selected by the store."
+          title={title}
+          subtitle={t("Seasonal picks selected by the store.")}
           products={seasonal}
         />
       )}
-      {settings.homeSections.arrivals && (
+      {section === "arrivals" && (
         <Shelf
-          title="Meet the new arrivals"
-          subtitle="The latest additions to your everyday shop."
+          title={title}
+          subtitle={t("The latest additions to your everyday shop.")}
           products={arrivals}
         />
       )}
-      {settings.homeSections.popular && (
+      {section === "popular" && (
         <section className="extra-shelf">
           <SectionTitle
-            title="Your neighbourhood favourites"
-            subtitle="Based on completed customer deliveries."
+            title={title}
+            subtitle={t("Based on completed customer deliveries.")}
           />
           {popularIds.length ? (
             <div className="product-grid home-products">
@@ -255,17 +296,18 @@ export function HomeExtras() {
             </div>
           ) : (
             <div className="quiet-empty">
-              Popular products will appear after the first completed customer
-              deliveries.
+              {t(
+                "Popular products will appear after the first completed customer deliveries.",
+              )}
             </div>
           )}
         </section>
       )}
-      {settings.homeSections.reviews && (
+      {section === "reviews" && (
         <section className="review-section">
           <SectionTitle
-            title="From our customers’ kitchens"
-            subtitle="Real words from verified purchases."
+            title={title}
+            subtitle={t("Real words from verified purchases.")}
           />
           {reviews.length ? (
             <div className="review-grid">
@@ -277,54 +319,59 @@ export function HomeExtras() {
                   >
                     {"★".repeat(r.rating)}
                   </span>
-                  <p>“{r.text}”</p>
+                  <p>“{t(r.text)}”</p>
                   <strong>{r.author}</strong>
                   <small>
-                    <Check size={13} /> Verified purchase
+                    <Check size={13} />
+                    {t(" Verified purchase")}
                   </small>
                 </article>
               ))}
             </div>
           ) : (
             <div className="quiet-empty">
-              <Star size={20} /> Your story belongs here. Reviews open after a
-              completed purchase.
+              <Star size={20} />
+              {t(
+                " Your story belongs here. Reviews open after a completed purchase.",
+              )}
             </div>
           )}
         </section>
       )}
-      <section className="faq-section">
-        <div>
-          <span className="eyebrow">A LITTLE HELP, WHEN YOU NEED IT</span>
-          <h2>
-            Good questions.
-            <br />
-            Fresh answers.
-          </h2>
-          <p>Everything you need for an easier grocery shop.</p>
-          <Link href="/orders">
-            Get help with an order <ArrowRight size={15} />
-          </Link>
-        </div>
-        <div>
-          {settings.faqs.map((f) => (
-            <details key={f.question}>
-              <summary>{f.question}</summary>
-              <p>{f.answer}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+      {section === "faq" && (
+        <section className="faq-section">
+          <div>
+            <span className="eyebrow">
+              {t("A LITTLE HELP, WHEN YOU NEED IT")}
+            </span>
+            <h2>{t(title)}</h2>
+            <p>{t("Everything you need for an easier grocery shop.")}</p>
+            <Link href="/orders">
+              {t("Get help with an order ")}
+              <ArrowRight size={15} />
+            </Link>
+          </div>
+          <div>
+            {settings.faqs.map((f) => (
+              <details key={f.question}>
+                <summary>{t(f.question)}</summary>
+                <p>{t(f.answer)}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
 export function MobileNavigation() {
+  const { t } = useLanguage();
   const pathname = usePathname();
   const { items } = useShop();
   const count = items.reduce((s, i) => s + i.quantity, 0);
   if (pathname.startsWith("/admin")) return null;
   return (
-    <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+    <nav className="mobile-bottom-nav" aria-label={t("Mobile navigation")}>
       {[
         { href: "/", label: "Home", icon: Home },
         { href: "/products", label: "Categories", icon: Grid2X2 },
@@ -344,7 +391,7 @@ export function MobileNavigation() {
               <Icon size={21} />
               {label === "Cart" && count > 0 && <b>{count}</b>}
             </span>
-            {label}
+            {t(label)}
           </Link>
         );
       })}

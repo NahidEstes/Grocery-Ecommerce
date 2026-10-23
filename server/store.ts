@@ -13,6 +13,7 @@ import {
 } from "./repository";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { getContent } from "./management-store";
 export function databaseMode() {
   return mongo() ? ("mongodb" as const) : ("demo" as const);
 }
@@ -33,6 +34,7 @@ export async function saveCatalog(catalog: Product[]) {
 }
 export async function getPublicCatalog() {
   const catalog = await getCatalog();
+  const content = await getContent();
   const reviews = (await listEntities<Review>("review:")).filter(
     (r) => r.status === "approved",
   );
@@ -46,6 +48,16 @@ export async function getPublicCatalog() {
       });
       return {
         ...p,
+        searchTerms: [
+          ...(p.searchTerms || []),
+          ...content.aliases
+            .filter(
+              (a) =>
+                a.productIds.includes(p.id) ||
+                (!!p.parentId && a.productIds.includes(p.parentId)),
+            )
+            .map((a) => a.term),
+        ],
         rating: group.length
           ? Number(
               (group.reduce((n, r) => n + r.rating, 0) / group.length).toFixed(

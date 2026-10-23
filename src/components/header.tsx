@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import {
   ChevronDown,
@@ -20,9 +22,12 @@ import { useAccount } from "./account-provider";
 import { SmartSearch } from "./smart-search";
 import { ListChecks } from "lucide-react";
 import { MiniCart } from "./mini-cart";
+import { isStaff } from "@/lib/management";
+import { LanguageSwitcher } from "./language-provider";
 export function Brand() {
+  const { t } = useLanguage();
   return (
-    <Link href="/" className="brand" aria-label="FreshCart home">
+    <Link href="/" className="brand" aria-label={t("FreshCart home")}>
       <span className="brand-symbol">
         <ShoppingBag size={33} strokeWidth={2.5} />
         <Leaf className="brand-leaf" size={20} fill="currentColor" />
@@ -31,12 +36,13 @@ export function Brand() {
         <span className="brand-name">
           Fresh<span>Cart</span>
         </span>
-        <small>Good food. Brighter days.</small>
+        <small>{t("Good food. Brighter days.")}</small>
       </span>
     </Link>
   );
 }
 export function Header() {
+  const { t } = useLanguage();
   const { user } = useAccount();
   const { items, catalog, area, setArea, saved, settings, setMiniCartOpen } =
     useShop();
@@ -49,11 +55,14 @@ export function Header() {
     <>
       <div className="announcement">
         <span>
-          <Leaf size={12} />A fresher everyday starts here
+          <Leaf size={12} />
+          {t("A fresher everyday starts here")}
         </span>
         <span>
-          Free delivery on orders of {money(settings.freeDeliveryAt)}+
-          <span className="announcement-dot">•</span>Choose your delivery slot
+          {t("Free delivery on orders of ")}
+          {money(settings.freeDeliveryAt)}+
+          <span className="announcement-dot">•</span>
+          {t("Choose your delivery slot")}
         </span>
       </div>
       <header className="header">
@@ -61,7 +70,7 @@ export function Header() {
           <button
             className="mobile-menu icon-button"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open categories"
+            aria-label={t("Open categories")}
           >
             <Menu />
           </button>
@@ -72,26 +81,30 @@ export function Header() {
           >
             <MapPin size={25} />
             <span>
-              <small>Deliver to</small>
+              <small>{t("Deliver to")}</small>
               <strong>
-                {area}, Dhaka
+                {area}
+                {t(", Dhaka")}
                 <ChevronDown size={12} />
               </strong>
             </span>
           </button>
           <SmartSearch />
+          <LanguageSwitcher />
           <div className="account-wrap">
             <button
               className="account-button"
-              aria-label="My shopping account"
+              aria-label={t("My shopping account")}
               aria-expanded={accountOpen}
               onClick={() => setAccountOpen(!accountOpen)}
             >
               <UserRound size={26} />
               <span>
-                <strong>{user ? user.name.split(" ")[0] : "My Account"}</strong>
+                <strong>
+                  {user ? user.name.split(" ")[0] : t("My Account")}
+                </strong>
                 <small>
-                  {user ? "Your shopping space" : "Sign in / Register"}
+                  {t(user ? "Your shopping space" : "Sign in / Register")}
                 </small>
               </span>
               <ChevronDown size={12} />
@@ -101,22 +114,24 @@ export function Header() {
                 <button
                   className="popover-dismiss"
                   onClick={() => setAccountOpen(false)}
-                  aria-label="Close account menu"
+                  aria-label={t("Close account menu")}
                 />
                 <div className="account-popover">
-                  <strong>Make yourself at home</strong>
+                  <strong>{t("Make yourself at home")}</strong>
                   <p>
-                    {user
-                      ? "Your groceries and orders, together."
-                      : "Sign in to save addresses and orders across devices."}
+                    {t(
+                      user
+                        ? "Your groceries and orders, together."
+                        : "Sign in to save addresses and orders across devices.",
+                    )}
                   </p>
                   <Link href="/account" onClick={() => setAccountOpen(false)}>
                     <UserRound size={17} />
-                    {user ? "Manage account" : "Sign in / Create account"}
+                    {t(user ? "Manage account" : "Sign in / Create account")}
                   </Link>
-                  {user?.role === "admin" && (
+                  {isStaff(user?.role) && (
                     <Link href="/admin" onClick={() => setAccountOpen(false)}>
-                      Admin dashboard
+                      {t("Admin dashboard")}
                     </Link>
                   )}
                   <Link
@@ -124,19 +139,21 @@ export function Header() {
                     onClick={() => setAccountOpen(false)}
                   >
                     <Heart size={17} />
-                    Saved items <span>{saved.length}</span>
+                    {t("Saved items ")}
+                    <span>{saved.length}</span>
                   </Link>
                   <Link href="/cart" onClick={() => setAccountOpen(false)}>
                     <ShoppingCart size={17} />
-                    My shopping cart<span>{count}</span>
+                    {t("My shopping cart")}
+                    <span>{count}</span>
                   </Link>
                   <Link href="/orders" onClick={() => setAccountOpen(false)}>
                     <Package size={17} />
-                    My orders
+                    {t("My orders")}
                   </Link>
                   <Link href="/lists" onClick={() => setAccountOpen(false)}>
                     <ListChecks size={17} />
-                    My shopping lists
+                    {t("My shopping lists")}
                   </Link>
                 </div>
               </>
@@ -145,14 +162,14 @@ export function Header() {
           <button
             onClick={() => setMiniCartOpen(true)}
             className="header-cart"
-            aria-label={`Open basket, ${count} items`}
+            aria-label={t("Open basket, {count} items", { count })}
           >
             <span className="cart-icon">
               <ShoppingCart size={28} />
               <span className="cart-count">{count}</span>
             </span>
             <span>
-              <strong>My Cart</strong>
+              <strong>{t("My Cart")}</strong>
               <small>{money(subtotal)}</small>
             </span>
           </button>
@@ -161,11 +178,11 @@ export function Header() {
       <MiniCart />
       {locationOpen && (
         <Modal
-          title="Where should we deliver?"
+          title={t("Where should we deliver?")}
           onClose={() => setLocationOpen(false)}
         >
           <p className="modal-description">
-            Choose your area for fresh groceries, delivered to your door.
+            {t("Choose your area for fresh groceries, delivered to your door.")}
           </p>
           <div className="area-options">
             {settings.zones
@@ -182,8 +199,8 @@ export function Header() {
                 >
                   <MapPin size={20} />
                   <span>
-                    <strong>{option}</strong>
-                    <small>Dhaka · Delivery slots at checkout</small>
+                    <strong>{t(option)}</strong>
+                    <small>{t("Dhaka · Delivery slots at checkout")}</small>
                   </span>
                   {area === option && <span className="area-check">✓</span>}
                 </button>
@@ -199,7 +216,7 @@ export function Header() {
               <button
                 className="icon-button"
                 onClick={() => setMobileOpen(false)}
-                aria-label="Close categories"
+                aria-label={t("Close categories")}
               >
                 <X />
               </button>
@@ -226,6 +243,7 @@ function MobileDrawer({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = dialogRef.current!;
@@ -243,7 +261,7 @@ function MobileDrawer({
     <dialog
       ref={dialogRef}
       className="mobile-drawer"
-      aria-label="Grocery categories"
+      aria-label={t("Grocery categories")}
       onCancel={(event) => {
         event.preventDefault();
         onClose();

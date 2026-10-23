@@ -36,7 +36,7 @@ function canonical(token: string) {
 }
 function words(product: Product) {
   const text = normalizeSearch(
-    `${product.name} ${product.brand || ""} ${product.category} ${product.unit} ${product.description}`,
+    `${product.name} ${product.brand || ""} ${product.category} ${product.unit} ${product.description} ${(product.searchTerms || []).join(" ")}`,
   );
   const tokens = text.split(" ");
   const canonicalTokens = tokens.map(canonical);

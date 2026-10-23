@@ -14,7 +14,7 @@
     "start": "concurrently -k -n api,web \"npm:start:api\" \"npm:start:web\"",
     "start:web": "next start --hostname 127.0.0.1",
     "start:api": "tsx server/index.ts",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --incremental false",
     "test": "tsx --test tests/*.test.ts",
     "seed": "tsx server/seed.ts",
     "admin:promote": "tsx server/create-admin.ts",

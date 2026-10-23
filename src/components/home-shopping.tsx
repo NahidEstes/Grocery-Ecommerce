@@ -1,4 +1,6 @@
 "use client";
+import { useLanguage } from "./language-provider";
+
 import Link from "next/link";
 import {
   ArrowRight,
@@ -18,6 +20,7 @@ import { formatDelivery } from "@/lib/orders";
 import { ProductImage } from "./ui";
 
 export function ActiveOrderBanner() {
+  const { t, locale } = useLanguage();
   const { user } = useAccount(),
     { activeOrder: order, error, loading, refresh } = useShopping(),
     { ready } = useShop();
@@ -31,7 +34,10 @@ export function ActiveOrderBanner() {
         ? "Freshness is being packed"
         : "Your order is out for delivery";
   return (
-    <section className="active-order-banner" aria-label="Your active order">
+    <section
+      className="active-order-banner"
+      aria-label={t("Your active order")}
+    >
       <span className="active-order-icon">
         {order.status === "out-for-delivery" ? (
           <Truck size={22} />
@@ -41,22 +47,24 @@ export function ActiveOrderBanner() {
       </span>
       <div>
         <span>
-          {order.mode === "demo"
-            ? "DEMO ORDER · NO DELIVERY SCHEDULED"
-            : "YOUR CURRENT ORDER"}
-          {error ? " · STATUS MAY BE OUTDATED" : ""}
+          {t(
+            order.mode === "demo"
+              ? "DEMO ORDER · NO DELIVERY SCHEDULED"
+              : "YOUR CURRENT ORDER",
+          )}
+          {t(error ? " · STATUS MAY BE OUTDATED" : "")}
         </span>
-        <strong>{label}</strong>
+        <strong>{t(label)}</strong>
         <small>
-          #{order.reference} · {formatDelivery(order.deliverySelection)}
+          #{order.reference} · {formatDelivery(order.deliverySelection, locale)}
         </small>
       </div>
       <Link href={`/orders/${order.reference}`}>
-        {pending ? "View payment" : "View order"} <ArrowRight size={16} />
+        {t(pending ? "View payment" : "View order")} <ArrowRight size={16} />
       </Link>
       <button
         disabled={loading}
-        aria-label="Refresh active order"
+        aria-label={t("Refresh active order")}
         className="icon-button"
         onClick={() => void refresh()}
       >
@@ -66,13 +74,14 @@ export function ActiveOrderBanner() {
   );
 }
 export function HomeShoppingHub() {
+  const { t, locale } = useLanguage();
   const { user } = useAccount(),
     { regular, lists, loading, error, refresh } = useShopping(),
     { catalog, ready } = useShop();
   if (!ready)
     return (
       <div className="personal-shopping-loading" role="status">
-        Getting your shopping space ready…
+        {t("Getting your shopping space ready…")}
       </div>
     );
   if (!user)
@@ -82,18 +91,21 @@ export function HomeShoppingHub() {
           <ListChecks size={23} />
         </span>
         <div>
-          <strong>Your everyday, remembered.</strong>
-          <p>Save a shopping list and find your usual favourites faster.</p>
+          <strong>{t("Your everyday, remembered.")}</strong>
+          <p>
+            {t("Save a shopping list and find your usual favourites faster.")}
+          </p>
         </div>
         <Link href="/account">
-          Make yourself at home <ArrowRight size={16} />
+          {t("Make yourself at home ")}
+          <ArrowRight size={16} />
         </Link>
       </section>
     );
   if (loading && !regular.length && !lists.length)
     return (
       <div className="personal-shopping-loading" role="status">
-        Finding your everyday favourites…
+        {t("Finding your everyday favourites…")}
       </div>
     );
   return (
@@ -101,20 +113,25 @@ export function HomeShoppingHub() {
       <div className="personal-shelf-heading">
         <div>
           <span className="eyebrow">
-            <RefreshCw size={13} /> A FAMILIAR KIND OF FRESH
+            <RefreshCw size={13} />
+            {t(" A FAMILIAR KIND OF FRESH")}
           </span>
-          <h2>Your everyday favourites</h2>
-          <p>From your past orders. Today’s prices, ready for your basket.</p>
+          <h2>{t("Your everyday favourites")}</h2>
+          <p>
+            {t("From your past orders. Today’s prices, ready for your basket.")}
+          </p>
         </div>
         <Link href="/lists">
-          <ListChecks size={16} /> My lists <ArrowRight size={14} />
+          <ListChecks size={16} />
+          {t(" My lists ")}
+          <ArrowRight size={14} />
         </Link>
       </div>
       {error && (
         <div className="personal-shopping-error">
-          <p>{error}</p>
+          <p>{t(error)}</p>
           <button className="text-button" onClick={() => void refresh()}>
-            Try again
+            {t("Try again")}
           </button>
         </div>
       )}
@@ -128,7 +145,7 @@ export function HomeShoppingHub() {
                   {product ? (
                     <Link
                       href={`/products/${product.slug}`}
-                      aria-label={`View your usual ${product.name}`}
+                      aria-label={t("View {name}", { name: t(product.name) })}
                     >
                       <ProductImage product={product} />
                     </Link>
@@ -138,11 +155,11 @@ export function HomeShoppingHub() {
                     </span>
                   )}
                   <div>
-                    <strong>{product?.name || item.name}</strong>
-                    <small>{product?.unit || item.unit}</small>
+                    <strong>{t(product?.name || item.name)}</strong>
+                    <small>{t(product?.unit || item.unit)}</small>
                     <span className="regular-price">
                       {product ? money(product.price) : "Unavailable"}{" "}
-                      <small>per pack</small>
+                      <small>{t("per pack")}</small>
                     </span>
                   </div>
                   {product && product.stock > 0 ? (
@@ -153,7 +170,7 @@ export function HomeShoppingHub() {
                     />
                   ) : (
                     <span className="list-stock-note">
-                      Currently unavailable
+                      {t("Currently unavailable")}
                     </span>
                   )}
                 </article>
@@ -162,10 +179,12 @@ export function HomeShoppingHub() {
           </div>
           <div className="regular-shelf-footer">
             <span>
-              <Check size={14} /> Based on your own order history
+              <Check size={14} />
+              {t(" Based on your own order history")}
             </span>
             <Link href="/orders">
-              All past orders <ArrowRight size={14} />
+              {t("All past orders ")}
+              <ArrowRight size={14} />
             </Link>
           </div>
         </>
@@ -174,8 +193,9 @@ export function HomeShoppingHub() {
           <div className="regular-first-order">
             <ShoppingBag size={27} />
             <p>
-              Your usuals will appear after your first order. Start a list to
-              plan your next shop.
+              {t(
+                "Your usuals will appear after your first order. Start a list to plan your next shop.",
+              )}
             </p>
           </div>
         )
@@ -189,7 +209,10 @@ export function HomeShoppingHub() {
               <ListChecks size={18} />
               <span>
                 <strong>{list.name}</strong>
-                <small>{list.items.length} saved products</small>
+                <small>
+                  {list.items.length}
+                  {t(" saved products")}
+                </small>
               </span>
               <ArrowRight size={15} />
             </Link>
@@ -197,8 +220,8 @@ export function HomeShoppingHub() {
         <Link href="/lists" className="new-list-shortcut">
           <ListChecks size={18} />
           <span>
-            <strong>Plan your next market day</strong>
-            <small>Create a personal shopping list</small>
+            <strong>{t("Plan your next market day")}</strong>
+            <small>{t("Create a personal shopping list")}</small>
           </span>
           <ArrowRight size={15} />
         </Link>

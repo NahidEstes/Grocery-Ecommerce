@@ -33,6 +33,8 @@ export const productSchema = z
       .optional(),
     atlas: z.number().int().min(0).max(11),
     stock: z.number().int().min(0).max(100000),
+    lowStockThreshold: z.number().int().min(0).max(100000).optional(),
+    searchTerms: z.array(z.string().trim().min(1).max(80)).max(30).optional(),
     description: z.string().max(2000),
     organic: z.boolean().optional(),
     rating: z.number().min(0).max(5).default(0),
@@ -47,6 +49,7 @@ export const productSchema = z
     imageUrl: z
       .union([
         z.literal(""),
+        z.string().regex(/^\/api\/media\/[a-f0-9-]+\.(?:png|jpg|webp)$/),
         z
           .url()
           .refine((v) => v.startsWith("https://"), "Use an HTTPS image URL"),

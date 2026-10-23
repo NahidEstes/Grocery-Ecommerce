@@ -1,4 +1,5 @@
 "use client";
+import { useLanguage } from "./language-provider";
 import {
   createContext,
   useContext,
@@ -18,8 +19,12 @@ import { useAccount } from "./account-provider";
 import { api } from "@/lib/client-api";
 import { useRef } from "react";
 import { usePathname } from "next/navigation";
+import { defaultContent, type ContentConfig } from "@/lib/management";
+import { type Recipe } from "@/lib/recipes";
 
 type ShopState = {
+  content: ContentConfig;
+  recipes: Recipe[];
   miniCartOpen: boolean;
   setMiniCartOpen: (open: boolean) => void;
   settings: StoreSettings;
@@ -51,12 +56,19 @@ type ShopState = {
 const ShopContext = createContext<ShopState | null>(null);
 export function ShopProvider({
   catalog: initialCatalog,
+  initialContent = defaultContent,
+  initialRecipes = [],
   children,
 }: {
   catalog: Product[];
+  initialContent?: ContentConfig;
+  initialRecipes?: Recipe[];
   children: ReactNode;
 }) {
+  const { t } = useLanguage();
   const [catalog, setCatalog] = useState(initialCatalog);
+  const [content, setContent] = useState(initialContent),
+    [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const path = usePathname();
   const [items, setItemsState] = useState<CartItem[]>([]);
   const itemsRef = useRef<CartItem[]>([]);
@@ -88,12 +100,16 @@ export function ShopProvider({
   const [cartLoadedFor, setCartLoadedFor] = useState<string | null>(null);
   useEffect(() => {
     api<{
+      content?: ContentConfig;
+      recipes?: Recipe[];
       settings: StoreSettings;
       payments: { enabled: boolean; sandbox: boolean };
       popularIds: string[];
       reviews: Omit<Review, "userId" | "reference">[];
     }>("/storefront")
       .then((data) => {
+        if (data.content) setContent(data.content);
+        if (data.recipes) setRecipes(data.recipes);
         setSettings(data.settings);
         setPayments(data.payments);
         setPopularIds(data.popularIds);
@@ -246,7 +262,7 @@ export function ShopProvider({
     setItems((previous) =>
       sanitizeCart([...previous, { productId: id, quantity }], catalog),
     );
-    setToast(`${product.name} added to your cart`);
+    setToast(t("{name} added to your cart", { name: t(product.name) }));
   }
   function toggleSaved(id: string) {
     setSaved((previous) =>
@@ -299,6 +315,8 @@ export function ShopProvider({
   return (
     <ShopContext.Provider
       value={{
+        content,
+        recipes,
         miniCartOpen,
         setMiniCartOpen,
         settings,
@@ -333,7 +351,7 @@ export function ShopProvider({
         role="status"
         aria-live="polite"
       >
-        {toast}
+        {t(toast)}
       </div>
     </ShopContext.Provider>
   );

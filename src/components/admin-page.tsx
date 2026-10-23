@@ -26,7 +26,12 @@ import type { Order } from "@/lib/orders";
 import { formatDelivery, orderTime } from "@/lib/orders";
 import { money } from "@/lib/commerce";
 import { ProductImage } from "./ui";
+import { can, isStaff, type Permission } from "@/lib/management";
+import { ManagementPanel } from "./admin-management";
+import { OrderOperationsPanel, CaseTools } from "./admin-operations";
+import { UnsavedProvider, useUnsaved, ImageUploadField } from "./admin-shared";
 type Overview = {
+  stockThreshold: number;
   support: SupportTicket[];
   products: Product[];
   orders: Order[];
@@ -55,11 +60,58 @@ const tabs = [
   { id: "storefront", label: "Storefront settings", icon: Settings2 },
   { id: "reviews", label: "Customer reviews", icon: MessageSquare },
   { id: "support", label: "Customer support", icon: MessageSquare },
+  { id: "recipes", label: "Recipe management", icon: Leaf },
+  { id: "homepage", label: "Homepage editor", icon: Settings2 },
+  { id: "catalog-tools", label: "Bulk updates & CSV", icon: Boxes },
+  { id: "inventory", label: "Inventory & alerts", icon: Package },
+  { id: "reports", label: "Sales & promo reports", icon: BarChart3 },
+  { id: "search", label: "Search & alerts", icon: Search },
+  { id: "returns", label: "Returns & refunds", icon: RefreshCw },
+  { id: "team", label: "Staff & permissions", icon: ShieldCheck },
+  { id: "activity", label: "Activity history", icon: Check },
 ];
-export function AdminPage() {
+const tabPermissions: Record<string, Permission> = {
+  overview: "reports",
+  products: "products",
+  orders: "orders",
+  storefront: "content",
+  reviews: "reviews",
+  support: "support",
+  recipes: "content",
+  homepage: "content",
+  "catalog-tools": "products",
+  inventory: "products",
+  reports: "reports",
+  search: "content",
+  returns: "returns",
+  team: "team",
+  activity: "audit",
+};
+export function AdminPage({ initialSection }: { initialSection?: string }) {
+  const { user } = useAccount();
+  return (
+    <UnsavedProvider key={`${user?.id}-${user?.role}`}>
+      <AdminWorkspace initialSection={initialSection} />
+    </UnsavedProvider>
+  );
+}
+function AdminWorkspace({ initialSection }: { initialSection?: string }) {
   const { user, ready } = useAccount();
+  const { confirmLeave, clean } = useUnsaved();
   const [data, setData] = useState<Overview | null>(null),
-    [tab, setTab] = useState("overview"),
+    [tab, setTab] = useState(
+      initialSection &&
+        tabPermissions[initialSection] &&
+        can(user?.role, tabPermissions[initialSection])
+        ? initialSection
+        : can(user?.role, "reports")
+          ? "overview"
+          : can(user?.role, "products")
+            ? "products"
+            : "orders",
+    ),
+    [notice, setNotice] = useState(""),
+    [panelRevision, setPanelRevision] = useState(0),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [editing, setEditing] = useState<Product | null | undefined>(undefined),
@@ -77,7 +129,7 @@ export function AdminPage() {
     }
   }
   useEffect(() => {
-    if (user?.role === "admin") void load();
+    if (isStaff(user?.role)) void load();
   }, [user?.id, user?.role]);
   async function updateStatus(reference: string, status: string) {
     setBusy(true);
@@ -88,6 +140,9 @@ export function AdminPage() {
         body: JSON.stringify({ status }),
       });
       await load();
+      setNotice(
+        "Order status updated. The change was recorded in its history.",
+      );
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -97,7 +152,7 @@ export function AdminPage() {
     return (
       <div className="page-container loading-state">Checking your account…</div>
     );
-  if (user?.role !== "admin")
+  if (!isStaff(user?.role))
     return (
       <div className="page-container empty-state">
         <ShieldCheck size={46} />
@@ -119,29 +174,34 @@ export function AdminPage() {
           <Leaf size={24} /> FreshCart <small>STORE MANAGER</small>
         </Link>
         <nav aria-label="Administration">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              className={id === tab ? "active" : ""}
-              onClick={() => {
-                setTab(id);
-                setQuery("");
-                setStatus("");
-                setEditing(undefined);
-              }}
-            >
-              <Icon size={19} />
-              {label}
-              <ChevronRight size={14} />
-            </button>
-          ))}
+          {tabs
+            .filter((t) => can(user?.role, tabPermissions[t.id]))
+            .map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                className={id === tab ? "active" : ""}
+                onClick={async () => {
+                  if (!(await confirmLeave())) return;
+                  setTab(id);
+                  window.history.replaceState(null, "", `/admin?section=${id}`);
+                  setNotice("");
+                  setQuery("");
+                  setStatus("");
+                  setEditing(undefined);
+                }}
+              >
+                <Icon size={19} />
+                {label}
+                <ChevronRight size={14} />
+              </button>
+            ))}
         </nav>
         <div className="admin-person">
           <span className="round-icon">
             <ShieldCheck size={19} />
           </span>
-          <strong>{user.name}</strong>
-          <small>Administrator</small>
+          <strong>{user!.name}</strong>
+          <small>{user!.role}</small>
           <Link href="/">Visit storefront ↗</Link>
         </div>
       </aside>
@@ -152,13 +212,27 @@ export function AdminPage() {
             <h1>{tabs.find((t) => t.id === tab)?.label}</h1>
             <p>Good food starts with a well-run store.</p>
           </div>
-          <button className="button outline" onClick={load} disabled={busy}>
+          <button
+            className="button outline"
+            onClick={async () => {
+              if (await confirmLeave()) {
+                setPanelRevision((v) => v + 1);
+                void load();
+              }
+            }}
+            disabled={busy}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
         </header>
         {error && (
           <p className="form-error admin-alert" role="alert">
             {error}
+          </p>
+        )}
+        {notice && (
+          <p className="success-message admin-feedback" role="status">
+            {notice}
           </p>
         )}
         {!data ? (
@@ -169,6 +243,24 @@ export function AdminPage() {
           </div>
         ) : (
           <>
+            {[
+              "recipes",
+              "homepage",
+              "catalog-tools",
+              "inventory",
+              "reports",
+              "search",
+              "returns",
+              "team",
+              "activity",
+            ].includes(tab) && (
+              <ManagementPanel
+                key={`${tab}-${panelRevision}`}
+                tab={tab}
+                products={data.products}
+                reload={load}
+              />
+            )}
             <div
               className={`storage-banner ${data.storage === "demo" ? "demo" : ""}`}
             >
@@ -250,7 +342,12 @@ export function AdminPage() {
                   <section className="surface-card">
                     <h2>Stock to keep an eye on</h2>
                     {data.products
-                      .filter((p) => p.stock <= 5 && p.active !== false)
+                      .filter(
+                        (p) =>
+                          p.stock <=
+                            (p.lowStockThreshold ?? data.stockThreshold) &&
+                          p.active !== false,
+                      )
                       .slice(0, 6)
                       .map((p) => (
                         <button
@@ -293,6 +390,8 @@ export function AdminPage() {
                     });
                     setEditing(undefined);
                     await load();
+                    clean();
+                    setNotice("Product saved successfully.");
                   }}
                 />
               ) : (
@@ -353,7 +452,12 @@ export function AdminPage() {
                               <td>{money(p.price)}</td>
                               <td>
                                 <span
-                                  className={p.stock <= 5 ? "low-stock" : ""}
+                                  className={
+                                    p.stock <=
+                                    (p.lowStockThreshold ?? data.stockThreshold)
+                                      ? "low-stock"
+                                      : ""
+                                  }
                                 >
                                   {p.stock}
                                 </span>
@@ -468,6 +572,7 @@ export function AdminPage() {
                             </button>
                           ))}
                         </div>
+                        <OrderOperationsPanel reference={o.reference} />
                       </article>
                     ))}
                 </div>
@@ -484,117 +589,184 @@ export function AdminPage() {
                     body: JSON.stringify(settings),
                   });
                   await load();
+                  clean();
+                  setNotice("Storefront settings saved.");
                 }}
               />
             )}
             {tab === "support" && (
               <div className="admin-order-list">
+                <div className="surface-card management-toolbar">
+                  <input
+                    aria-label="Search support requests"
+                    placeholder="Order, name or message…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <select
+                    aria-label="Support status filter"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="">All statuses</option>
+                    <option value="open">Open</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
                 {!data.support.length && (
                   <div className="surface-card quiet-empty">
                     No support requests yet.
                   </div>
                 )}
-                {data.support.map((ticket) => (
-                  <article className="surface-card" key={ticket.id}>
-                    <div className="card-title">
-                      <strong>
-                        {ticket.reference} · {ticket.name}
-                      </strong>
-                      <span className="filter-chip">{ticket.status}</span>
-                    </div>
-                    <p>{ticket.message}</p>
-                    <small>{orderTime(ticket.createdAt)}</small>
-                    <div className="inline-actions">
-                      <button
-                        className="button outline small"
-                        disabled={busy}
-                        onClick={async () => {
-                          setBusy(true);
-                          try {
-                            await api(`/admin/support/${ticket.id}`, {
-                              method: "PATCH",
-                              body: JSON.stringify({
-                                status:
-                                  ticket.status === "open"
-                                    ? "resolved"
-                                    : "open",
-                              }),
-                            });
-                            await load();
-                          } catch (e) {
-                            setError((e as Error).message);
-                            setBusy(false);
-                          }
-                        }}
-                      >
-                        {ticket.status === "open"
-                          ? "Mark resolved"
-                          : "Reopen request"}
-                      </button>
-                      <Link
-                        className="button outline small"
-                        href={`/orders/${ticket.reference}`}
-                      >
-                        View order
-                      </Link>
-                    </div>
-                  </article>
-                ))}
+                {data.support
+                  .filter(
+                    (ticket) =>
+                      (!status || ticket.status === status) &&
+                      `${ticket.reference} ${ticket.name} ${ticket.message}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  )
+                  .map((ticket) => (
+                    <article className="surface-card" key={ticket.id}>
+                      <div className="card-title">
+                        <strong>
+                          {ticket.reference} · {ticket.name}
+                        </strong>
+                        <span className="filter-chip">{ticket.status}</span>
+                      </div>
+                      <p>{ticket.message}</p>
+                      <small>{orderTime(ticket.createdAt)}</small>
+                      <CaseTools
+                        kind="support"
+                        id={ticket.id}
+                        createdAt={ticket.createdAt}
+                        status={ticket.status}
+                      />
+                      <div className="inline-actions">
+                        <button
+                          className="button outline small"
+                          disabled={busy}
+                          onClick={async () => {
+                            setBusy(true);
+                            try {
+                              await api(`/admin/support/${ticket.id}`, {
+                                method: "PATCH",
+                                body: JSON.stringify({
+                                  status:
+                                    ticket.status === "open"
+                                      ? "resolved"
+                                      : "open",
+                                }),
+                              });
+                              await load();
+                            } catch (e) {
+                              setError((e as Error).message);
+                              setBusy(false);
+                            }
+                          }}
+                        >
+                          {ticket.status === "open"
+                            ? "Mark resolved"
+                            : "Reopen request"}
+                        </button>
+                        <Link
+                          className="button outline small"
+                          href={`/orders/${ticket.reference}`}
+                        >
+                          View order
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
               </div>
             )}
             {tab === "reviews" && (
               <div className="admin-order-list">
+                <div className="surface-card management-toolbar">
+                  <input
+                    aria-label="Search customer reviews"
+                    placeholder="Product, author or review…"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                  />
+                  <select
+                    aria-label="Review status filter"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="">All statuses</option>
+                    {["pending", "approved", "rejected"].map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
+                </div>
                 {!data.reviews.length && (
                   <div className="surface-card quiet-empty">
                     No customer reviews to moderate yet.
                   </div>
                 )}
-                {data.reviews.map((r) => (
-                  <article className="surface-card" key={r.id}>
-                    <div className="card-title">
-                      <strong>
-                        {data.products.find((p) => p.id === r.productId)
-                          ?.name || r.productId}
-                      </strong>
-                      <span className="filter-chip">{r.status}</span>
-                    </div>
-                    <span className="review-stars">{"★".repeat(r.rating)}</span>
-                    <p>{r.text}</p>
-                    <small>
-                      {r.author} · Verified purchase · {r.reference}
-                    </small>
-                    <div className="inline-actions">
-                      {["approved", "rejected", "pending"]
-                        .filter((s) => s !== r.status)
-                        .map((s) => (
-                          <button
-                            className="button outline small"
-                            key={s}
-                            disabled={busy}
-                            onClick={async () => {
-                              setBusy(true);
-                              try {
-                                await api(`/admin/reviews/${r.id}`, {
-                                  method: "PATCH",
-                                  body: JSON.stringify({ status: s }),
-                                });
-                                await load();
-                              } catch (e) {
-                                setError((e as Error).message);
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            {s === "approved"
-                              ? "Publish"
-                              : s === "rejected"
-                                ? "Reject"
-                                : "Move to pending"}
-                          </button>
-                        ))}
-                    </div>
-                  </article>
-                ))}
+                {data.reviews
+                  .filter(
+                    (r) =>
+                      (!status || r.status === status) &&
+                      `${r.productId} ${r.author} ${r.text}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                  )
+                  .map((r) => (
+                    <article className="surface-card" key={r.id}>
+                      <div className="card-title">
+                        <strong>
+                          {data.products.find((p) => p.id === r.productId)
+                            ?.name || r.productId}
+                        </strong>
+                        <span className="filter-chip">{r.status}</span>
+                      </div>
+                      <span className="review-stars">
+                        {"★".repeat(r.rating)}
+                      </span>
+                      <p>{r.text}</p>
+                      <CaseTools
+                        kind="review"
+                        id={r.id}
+                        createdAt={r.createdAt}
+                        status={r.status}
+                      />
+                      <small>
+                        {r.author} · Verified purchase · {r.reference}
+                      </small>
+                      <div className="inline-actions">
+                        {["approved", "rejected", "pending"]
+                          .filter((s) => s !== r.status)
+                          .map((s) => (
+                            <button
+                              className="button outline small"
+                              key={s}
+                              disabled={busy}
+                              onClick={async () => {
+                                setBusy(true);
+                                try {
+                                  await api(`/admin/reviews/${r.id}`, {
+                                    method: "PATCH",
+                                    body: JSON.stringify({ status: s }),
+                                  });
+                                  await load();
+                                } catch (e) {
+                                  setError((e as Error).message);
+                                  setBusy(false);
+                                }
+                              }}
+                            >
+                              {s === "approved"
+                                ? "Publish"
+                                : s === "rejected"
+                                  ? "Reject"
+                                  : "Move to pending"}
+                            </button>
+                          ))}
+                      </div>
+                    </article>
+                  ))}
               </div>
             )}
           </>
@@ -617,6 +789,8 @@ function ProductEditor({
   onCancel: () => void;
   onSave: (p: Product) => Promise<void>;
 }) {
+  const { markDirty, clean, confirmLeave } = useUnsaved();
+  useEffect(() => () => clean(), []);
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -633,6 +807,13 @@ function ProductEditor({
       price,
       atlas: Number(form.get("atlas")),
       stock: Number(form.get("stock")),
+      ...(text("lowStockThreshold")
+        ? { lowStockThreshold: Number(text("lowStockThreshold")) }
+        : {}),
+      searchTerms: text("searchTerms")
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean),
       description: text("description"),
       version: product?.version || 0,
       rating: 0,
@@ -663,7 +844,10 @@ function ProductEditor({
     setBusy(true);
     setError("");
     try {
-      await onSave(p);
+      const payload = { ...p, changeReason: text("changeReason") };
+      if (form.get("imageUrl-uploading") === "true")
+        throw new Error("Wait for the image upload to finish before saving.");
+      await onSave(payload);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -679,12 +863,14 @@ function ProductEditor({
         <button
           className="icon-button"
           aria-label="Close product editor"
-          onClick={onCancel}
+          onClick={async () => {
+            if (await confirmLeave()) onCancel();
+          }}
         >
           <X />
         </button>
       </div>
-      <form className="enhance-form" onSubmit={submit}>
+      <form className="enhance-form" onSubmit={submit} onChange={markDirty}>
         <div className="form-grid">
           {[
             { key: "id", label: "SKU / product ID", required: true },
@@ -810,6 +996,36 @@ function ProductEditor({
             />
           </label>
           <label>
+            Stock alert threshold (optional)
+            <input
+              name="lowStockThreshold"
+              type="number"
+              step={1}
+              min={0}
+              max={100000}
+              defaultValue={product?.lowStockThreshold}
+              placeholder="Use store default"
+            />
+          </label>
+          <label>
+            Search alternatives (comma separated)
+            <input
+              name="searchTerms"
+              maxLength={1000}
+              defaultValue={product?.searchTerms?.join(", ")}
+              placeholder="Local names or alternative spellings"
+            />
+          </label>
+          <label>
+            Reason for stock change
+            <input
+              name="changeReason"
+              minLength={3}
+              maxLength={200}
+              placeholder="e.g. Supplier delivery received"
+            />
+          </label>
+          <label>
             Country / region of origin
             <input
               name="origin"
@@ -817,15 +1033,7 @@ function ProductEditor({
               maxLength={150}
             />
           </label>
-          <label>
-            Image URL (HTTPS)
-            <input
-              name="imageUrl"
-              type="url"
-              defaultValue={product?.imageUrl}
-              placeholder="https://…"
-            />
-          </label>
+          <ImageUploadField initial={product?.imageUrl} />
           <label>
             Bundled photo fallback
             <select name="atlas" defaultValue={product?.atlas || 0}>
@@ -907,7 +1115,13 @@ function ProductEditor({
           <button className="button primary" disabled={busy}>
             {busy ? "Saving…" : "Save product"}
           </button>
-          <button type="button" className="button outline" onClick={onCancel}>
+          <button
+            type="button"
+            className="button outline"
+            onClick={async () => {
+              if (await confirmLeave()) onCancel();
+            }}
+          >
             Cancel
           </button>
         </div>
@@ -925,6 +1139,8 @@ function SettingsEditor({
   products: Product[];
   onSave: (settings: StoreSettings) => Promise<void>;
 }) {
+  const { markDirty, clean } = useUnsaved();
+  useEffect(() => () => clean(), []);
   const [draft, setDraft] = useState(initial),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -946,7 +1162,11 @@ function SettingsEditor({
     }
   }
   return (
-    <form className="enhance-form settings-form" onSubmit={submit}>
+    <form
+      className="enhance-form settings-form"
+      onSubmit={submit}
+      onChange={markDirty}
+    >
       <section className="surface-card">
         <h2>Homepage sections</h2>
         <p>Choose the shelves your customers see.</p>

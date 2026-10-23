@@ -1,4 +1,7 @@
 "use client";
+import { useLanguage } from "./language-provider";
+import { localeTag } from "@/lib/i18n";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
@@ -43,6 +46,7 @@ import {
 } from "./order-ui";
 
 export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
+  const { t, locale } = useLanguage();
   const {
     items,
     catalog,
@@ -325,17 +329,17 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
   if (!ready || !accountReady || !days.length)
     return (
       <div className="page-container loading-state">
-        Getting your checkout ready…
+        {t("Getting your checkout ready…")}
       </div>
     );
   if (!items.length && !submitted)
     return (
       <div className="page-container empty-state">
         <ShoppingBag size={52} />
-        <h1>Your basket is empty.</h1>
-        <p>Add a few fresh favourites to continue to checkout.</p>
+        <h1>{t("Your basket is empty.")}</h1>
+        <p>{t("Add a few fresh favourites to continue to checkout.")}</p>
         <Link className="button primary" href="/products">
-          Start shopping
+          {t("Start shopping")}
           <ArrowRight size={17} />
         </Link>
       </div>
@@ -343,7 +347,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
   if (submitted)
     return (
       <div className="page-container loading-state">
-        Opening your order confirmation…
+        {t("Opening your order confirmation…")}
       </div>
     );
   return (
@@ -352,7 +356,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
         items={[{ label: "Cart", href: "/cart" }, { label: "Checkout" }]}
       />
       <div className="checkout-page-heading">
-        <h1>Checkout</h1>
+        <h1>{t("Checkout")}</h1>
         <CheckoutSteps step={2} />
       </div>
       <form className="checkout-layout" onSubmit={submit}>
@@ -360,7 +364,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
           <section className="checkout-section">
             <div className="checkout-section-title">
               <span>1</span>
-              <h2>Delivery address</h2>
+              <h2>{t("Delivery address")}</h2>
             </div>
             <div className="checkout-addresses">
               {addresses.map((value) => (
@@ -381,9 +385,10 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                     />
                     <Home size={29} />
                     <span>
-                      <strong>{value.label}</strong>
+                      <strong>{t(value.label)}</strong>
                       <span>
-                        {value.address}, {value.area}, Dhaka
+                        {value.address}, {value.area}
+                        {t(", Dhaka")}
                       </span>
                       <small>
                         {value.name} · {value.phone}
@@ -397,7 +402,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                       aria-label={`Edit ${value.label} address`}
                     >
                       <Pencil size={15} />
-                      <span>Edit</span>
+                      <span>{t("Edit")}</span>
                     </button>
                     <button
                       type="button"
@@ -417,15 +422,15 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
               disabled={addresses.length >= 8}
             >
               <PlusCircle size={19} />
-              Add new address
+              {t("Add new address")}
             </button>
           </section>
           <section className="checkout-section">
             <div className="checkout-section-title">
               <span>2</span>
               <div>
-                <h2>Delivery slot</h2>
-                <p>Choose your preferred delivery time</p>
+                <h2>{t("Delivery slot")}</h2>
+                <p>{t("Choose your preferred delivery time")}</p>
               </div>
             </div>
             <div className="delivery-day-grid">
@@ -447,9 +452,12 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                 >
                   <CalendarDays size={23} />
                   <span>
-                    <strong>{day.label}</strong>
+                    <strong>{t(day.label)}</strong>
                     <small>
-                      {day.short}
+                      {new Date(`${day.date}T12:00:00Z`).toLocaleDateString(
+                        localeTag(locale),
+                        { month: "short", day: "numeric", timeZone: "UTC" },
+                      )}
                       {!day.slots.length && " · Closed"}
                     </small>
                   </span>
@@ -476,9 +484,9 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                       }
                     />
                     <span>
-                      <strong>{slot.label}</strong>
+                      <strong>{t(slot.label)}</strong>
                       <small>
-                        {available ? "Standard delivery" : "Unavailable"}
+                        {t(available ? "Standard delivery" : "Unavailable")}
                       </small>
                     </span>
                   </label>
@@ -486,14 +494,15 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
               })}
             </div>
             <p className="delivery-time-note">
-              All times are in Dhaka (GMT+6). Slots close one hour before they
-              start.
+              {t(
+                "All times are in Dhaka (GMT+6). Slots close one hour before they start.",
+              )}
             </p>
           </section>
           <section className="checkout-section">
             <div className="checkout-section-title">
               <span>3</span>
-              <h2>Payment method</h2>
+              <h2>{t("Payment method")}</h2>
             </div>
             <div className="payment-method-grid">
               <label
@@ -508,8 +517,8 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                 />
                 <Banknote size={31} />
                 <span>
-                  <strong>Cash on delivery</strong>
-                  <small>Pay when you receive</small>
+                  <strong>{t("Cash on delivery")}</strong>
+                  <small>{t("Pay when you receive")}</small>
                 </span>
               </label>
               <label
@@ -531,32 +540,39 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                 />
                 <span className="bkash-symbol">bK</span>
                 <span>
-                  <strong>bKash / Card</strong>
+                  <strong>{t("bKash / Card")}</strong>
                   <small>
-                    {payments.enabled
-                      ? payments.sandbox
-                        ? "Gateway sandbox"
-                        : "Secure gateway"
-                      : "Not configured"}
+                    {t(
+                      payments.enabled
+                        ? payments.sandbox
+                          ? "Gateway sandbox"
+                          : "Secure gateway"
+                        : "Not configured",
+                    )}
                   </small>
                 </span>
               </label>
             </div>
             <p className="payment-availability">
-              {payments.enabled
-                ? user
-                  ? "You will choose bKash or card on the payment gateway."
-                  : "Sign in to use online payment."
-                : "Online payment is unavailable until the store configures its gateway."}
+              {t(
+                payments.enabled
+                  ? user
+                    ? "You will choose bKash or card on the payment gateway."
+                    : "Sign in to use online payment."
+                  : "Online payment is unavailable until the store configures its gateway.",
+              )}
             </p>
             <label className="instructions-label">
-              Delivery instructions <span>(optional)</span>
+              {t("Delivery instructions ")}
+              <span>{t("(optional)")}</span>
               <textarea
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
                 maxLength={200}
                 rows={3}
-                placeholder="E.g. Call on arrival, apartment number or any specific instructions…"
+                placeholder={t(
+                  "E.g. Call on arrival, apartment number or any specific instructions…",
+                )}
               />
               <small>{instructions.length}/200</small>
             </label>
@@ -564,8 +580,8 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
         </div>
         <aside className="checkout-summary">
           <div className="checkout-summary-heading">
-            <h2>Order Summary</h2>
-            <Link href="/cart">Edit cart</Link>
+            <h2>{t("Order Summary")}</h2>
+            <Link href="/cart">{t("Edit cart")}</Link>
           </div>
           <div className="checkout-items">
             {items.map((item) => {
@@ -575,12 +591,15 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                   <ProductImage product={product} />
                   <div>
                     <Link href={`/products/${product.slug}`}>
-                      <strong>{product.name}</strong>
+                      <strong>{t(product.name)}</strong>
                     </Link>
-                    <small>{product.unit}</small>
+                    <small>{t(product.unit)}</small>
                   </div>
                   <label>
-                    <span className="sr-only">Quantity for {product.name}</span>
+                    <span className="sr-only">
+                      {t("Quantity for ")}
+                      {t(product.name)}
+                    </span>
                     <select
                       value={item.quantity}
                       onChange={(event) =>
@@ -605,7 +624,8 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
           {promo && (
             <p className="checkout-promo">
               <Check size={14} />
-              {promo} applied
+              {promo}
+              {t(" applied")}
             </p>
           )}
           <label className="consent-line">
@@ -615,12 +635,13 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
               onChange={(event) => setAgreed(event.target.checked)}
             />
             <span>
-              I’ve reviewed the <PolicyLinks />.
+              {t("I’ve reviewed the ")}
+              <PolicyLinks />.
             </span>
           </label>
           {error && (
             <p className="form-error checkout-error" role="alert">
-              {error}
+              {t(error)}
             </p>
           )}
           <button
@@ -629,14 +650,15 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
             disabled={loading || submitted}
           >
             {loading
-              ? "Saving your order…"
-              : `${payment === "online" ? "Continue to payment" : `Place ${mode === "demo" ? "demo " : ""}order`} · ${money(totals.total)}`}
+              ? t("Saving your order…")
+              : `${t(payment === "online" ? "Continue to payment" : mode === "demo" ? "Place demo order" : "Place order")} · ${money(totals.total)}`}
             <ArrowRight size={19} />
           </button>
           {mode === "demo" && (
             <p className="checkout-demo-note">
-              Demo order: saved for testing. No payment is collected and no
-              delivery is scheduled.
+              {t(
+                "Demo order: saved for testing. No payment is collected and no delivery is scheduled.",
+              )}
             </p>
           )}
           <SecureCheckout />
