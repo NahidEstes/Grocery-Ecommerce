@@ -7,7 +7,7 @@ export const deliveryAreas = [
   "Uttara",
   "Gulshan",
 ] as const;
-export type DeliveryArea = (typeof deliveryAreas)[number];
+export type DeliveryArea = string;
 export type Customer = {
   name: string;
   phone: string;
@@ -28,6 +28,8 @@ export type DeliverySelection = { date: string; slot: SlotId };
 export type OrderStatus =
   "placed" | "preparing" | "out-for-delivery" | "delivered" | "cancelled";
 export type Order = {
+  currency?: string;
+  timeZone?: string;
   reference: string;
   customer: Customer;
   items: {
@@ -61,6 +63,8 @@ export type Order = {
   inventoryReserved?: boolean;
 };
 export type OrderRecord = Order & {
+  financeRevision?: number;
+  inventoryAllocations?: import("./inventory").BatchAllocation[];
   accessTokenHash: string;
   fingerprint: string;
 };
@@ -84,9 +88,9 @@ export type CheckoutInput = {
 };
 
 // The store delivers in Dhaka; delivery slots are explicitly shown in Dhaka time.
-export function deliveryDays(now = new Date()) {
+export function deliveryDays(now = new Date(), timeZone = "Asia/Dhaka") {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Dhaka",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -116,7 +120,7 @@ export function deliveryDays(now = new Date()) {
       }),
       slots: deliverySlots.filter(
         (slot) =>
-          new Date(`${date}T${slot.start}:00+06:00`).getTime() >
+          localInstant(date, slot.start, timeZone).getTime() >
           now.getTime() + 60 * 60 * 1000,
       ),
     };
@@ -125,8 +129,9 @@ export function deliveryDays(now = new Date()) {
 export function isValidDelivery(
   selection: DeliverySelection,
   now = new Date(),
+  timeZone = "Asia/Dhaka",
 ) {
-  return deliveryDays(now).some(
+  return deliveryDays(now, timeZone).some(
     (day) =>
       day.date === selection.date &&
       day.slots.some((slot) => slot.id === selection.slot),
@@ -136,24 +141,53 @@ export function formatDelivery(
   selection: DeliverySelection,
   locale: Locale = "en",
 ) {
-  const date = new Date(`${selection.date}T12:00:00+06:00`);
+  const date = new Date(`${selection.date}T12:00:00Z`);
   const day = Number.isFinite(date.getTime())
     ? date.toLocaleDateString(localeTag(locale), {
         day: "numeric",
         month: "short",
         year: "numeric",
-        timeZone: "Asia/Dhaka",
+        timeZone: "UTC",
       })
     : selection.date;
   return `${day}, ${translate(locale, deliverySlots.find((slot) => slot.id === selection.slot)?.label || "")}`;
 }
-export function orderTime(value: string, locale: Locale = "en") {
+export function orderTime(
+  value: string,
+  locale: Locale = "en",
+  timeZone = "Asia/Dhaka",
+) {
   return new Date(value).toLocaleString(localeTag(locale), {
     day: "numeric",
     month: "short",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "Asia/Dhaka",
+    timeZone,
   });
+}
+// Resolve a merchant-local wall clock using the IANA offset on that date (DST aware).
+export function localInstant(date: string, time: string, timeZone: string) {
+  const wall = Date.parse(`${date}T${time}:00Z`);
+  let instant = wall;
+  for (let i = 0; i < 3; i++) {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(instant));
+    const p = (type: string) => parts.find((p) => p.type === type)!.value;
+    const rendered = Date.parse(
+      `${p("year")}-${p("month")}-${p("day")}T${p("hour")}:${p("minute")}:${p("second")}Z`,
+    );
+    const corrected = instant + wall - rendered;
+    if (corrected === instant) break;
+    instant = corrected;
+  }
+  return new Date(instant);
 }

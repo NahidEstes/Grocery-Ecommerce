@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -22,10 +23,9 @@ import {
   ShoppingBag,
   Truck,
 } from "lucide-react";
-import { money } from "@/lib/commerce";
+
 import {
   formatDelivery,
-  orderTime,
   type Order,
   type OrderReceipt,
   type SavedAddress,
@@ -99,6 +99,7 @@ function useOrder(reference: string) {
 }
 
 export function OrderConfirmation({ reference }: { reference: string }) {
+  const { orderTime, money } = useStoreFormat();
   const { t, locale } = useLanguage();
   const { order, setOrder, loading, error, token, refresh } =
     useOrder(reference);
@@ -296,17 +297,17 @@ export function OrderConfirmation({ reference }: { reference: string }) {
                   <strong>
                     {formatDelivery(order.deliverySelection, locale)}
                   </strong>
-                  <small>{t("Selected delivery slot · Dhaka time")}</small>
+                  <small>
+                    {t("Selected delivery slot")} ·{" "}
+                    {order.timeZone || "Asia/Dhaka"}
+                  </small>
                 </span>
               </div>
               <div>
                 <MapPin size={25} />
                 <span>
                   <strong>{order.customer.address}</strong>
-                  <small>
-                    {order.customer.area}
-                    {t(", Dhaka")}
-                  </small>
+                  <small>{order.customer.area}</small>
                   <small>
                     {order.customer.name} · {order.customer.phone}
                   </small>
@@ -441,6 +442,7 @@ export function OrderConfirmation({ reference }: { reference: string }) {
 
 type HistoryItem = { receipt: OrderReceipt; order?: Order; failed?: boolean };
 export function OrdersPage() {
+  const { orderTime, money } = useStoreFormat();
   const { t, locale } = useLanguage();
   const { user, ready } = useAccount();
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -566,10 +568,7 @@ export function OrdersPage() {
               <div className="history-card-heading">
                 <span>
                   <strong>#{receipt.reference}</strong>
-                  <small>
-                    {orderTime(receipt.createdAt, locale)}
-                    {t(" · Dhaka time")}
-                  </small>
+                  <small>{orderTime(receipt.createdAt, locale)}</small>
                 </span>
                 {order && (
                   <span className={`order-status status-${order.status}`}>

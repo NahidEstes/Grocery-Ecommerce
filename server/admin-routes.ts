@@ -16,6 +16,7 @@ import { publicOrder, changeStatus, expirePending } from "./checkout";
 import { productSchema, settingsSchema, bad } from "./validation";
 import type { Review } from "../src/lib/storefront";
 import type { SupportTicket } from "../src/lib/storefront";
+import { validateContentLanguages } from "./content-language-validation";
 export const adminRoutes = Router();
 adminRoutes.use("/admin", async (req, _res, next) => {
   if (req.method === "GET" && req.path === "/overview") await requireStaff(req);
@@ -107,10 +108,12 @@ adminRoutes.put("/admin/products/:id", async (req, res) => {
       );
     const item = {
       ...input,
+      translations: input.translations ?? old?.translations,
       rating: 0,
       version: (old?.version || 0) + 1,
       createdAt: old ? old.createdAt : new Date().toISOString(),
     };
+    validateContentLanguages("product", item);
     await stockEvent(actor, item.id, old?.stock || 0, item.stock, reason);
     await saveCatalog(
       old
@@ -134,6 +137,23 @@ adminRoutes.put("/admin/settings", async (req, res) => {
     for (const bundle of settings.bundles)
       if (bundle.items.some((i) => !catalog.some((p) => p.id === i.productId)))
         throw bad(`Bundle ${bundle.name} references an unknown product.`);
+    if (!req.body.profile) settings.profile = (await getSettings()).profile;
+    if (
+      process.env.SSLCOMMERZ_STORE_ID &&
+      (settings.profile.currency !== "BDT" || settings.profile.country !== "BD")
+    )
+      throw bad(
+        "The configured SSLCOMMERZ adapter requires currency BDT and country BD. Remove gateway configuration before changing market.",
+      );
+    const oldProfile = (await getSettings()).profile;
+    if (
+      oldProfile.currency !== settings.profile.currency &&
+      (await listOrders()).length > 0
+    )
+      throw bad(
+        "Currency is locked after the first order to protect historical totals and reports. Start a fresh store database to change currency.",
+        409,
+      );
     await saveSettings(settings);
     const content = await getContent();
     await writeEntity("content", {

@@ -1,4 +1,5 @@
 import type { Product } from "./catalog";
+import type { Translations } from "./content-language";
 export type RecipeIngredient = {
   id: string;
   name: string;
@@ -8,6 +9,7 @@ export type RecipeIngredient = {
   pantry?: string;
 };
 export type Recipe = {
+  translations?: Translations;
   version?: number;
   active?: boolean;
   imageUrl?: string;

@@ -21,6 +21,7 @@ import {
   listOrders,
   getSettings,
   saveSettings,
+  replaceOrder,
 } from "./store";
 import { publicOrder, tokenAccess } from "./checkout";
 import {
@@ -35,6 +36,9 @@ import {
 import { searchProducts, normalizeSearch } from "../src/lib/search";
 import type { Request } from "express";
 import type { OrderRecord } from "../src/lib/orders";
+import { validateContentLanguages } from "./content-language-validation";
+import { getBatches } from "./inventory-store";
+import { orderFinance, recordFinance } from "./finance-store";
 export const managementRoutes = Router();
 managementRoutes.get("/recipes", async (_req, res) =>
   res.json({ recipes: (await getRecipes()).filter((r) => r.active !== false) }),
@@ -56,6 +60,7 @@ managementRoutes.get("/admin/content", async (req, res) => {
 managementRoutes.put("/admin/content", async (req, res) => {
   const actor = await requirePermission(req, "content"),
     input = contentSchema.parse(req.body);
+  validateContentLanguages("homepage", input);
   const content = await atomic(async () => {
     const old = await getContent();
     if (old.version !== input.version)
@@ -95,6 +100,7 @@ managementRoutes.put("/admin/content", async (req, res) => {
 managementRoutes.put("/admin/recipes/:slug", async (req, res) => {
   const actor = await requirePermission(req, "content"),
     input = recipeSchema.parse(req.body);
+  validateContentLanguages("recipe", input);
   if (input.slug !== req.params.slug) throw bad("Recipe slug cannot change.");
   const recipe = await atomic(async () => {
     const recipes = await getRecipes(),
@@ -136,7 +142,13 @@ managementRoutes.get("/admin/reports", async (req, res) => {
     })
     .parse(req.query);
   res.json({
-    report: salesReport((await listOrders()).map(publicOrder), q.days, q.mode),
+    report: salesReport(
+      (await listOrders()).map(publicOrder),
+      q.days,
+      q.mode,
+      new Date(),
+      (await getSettings()).profile.timeZone,
+    ),
   });
 });
 managementRoutes.get("/admin/activity", async (req, res) => {
@@ -179,6 +191,8 @@ managementRoutes.post("/admin/products/batch", async (req, res) => {
       const old = catalog.find((v) => v.id === p.id);
       if ((old?.version || 0) !== (p.version || 0))
         throw bad(`${p.name} changed. Refresh and import again.`, 409);
+      p.translations ??= old?.translations;
+      validateContentLanguages("product", p);
       next = next
         .filter((v) => v.id !== p.id)
         .concat({
@@ -286,6 +300,21 @@ managementRoutes.get(
     if (!order) throw bad("Order not found.", 404);
     res.json({
       operations: await orderOperations(reference),
+      picking: (await getBatches()).flatMap((batch) => {
+        const allocation = order.inventoryAllocations?.find(
+          (a) => a.batchId === batch.id,
+        );
+        return allocation
+          ? [
+              {
+                productId: batch.productId,
+                batchNumber: batch.batchNumber,
+                expiresOn: batch.expiresOn,
+                quantity: allocation.quantity,
+              },
+            ]
+          : [];
+      }),
       events: (await listEntities<AuditEvent>("audit:"))
         .filter((e) => e.target === reference)
         .sort((a, b) => a.at.localeCompare(b.at)),
@@ -616,9 +645,42 @@ managementRoutes.patch("/admin/returns/:id", async (req, res) => {
       throw bad(
         "Record the completed payment method and external refund reference.",
       );
+    if (input.status === "refunded") {
+      await requirePermission(req, "finance");
+      const source = await findOrder(old.reference);
+      if (!source) throw bad("Order not found.", 404);
+      const finance = await orderFinance(source);
+      await recordFinance(
+        source,
+        {
+          id: old.id,
+          kind: "refund",
+          amount: old.amount,
+          method: input.refundMethod!,
+          reference: input.refundReference!,
+          note: input.notes,
+          returnId: old.id,
+        },
+        finance.version,
+        actor,
+      );
+      await replaceOrder({
+        ...source,
+        financeRevision: (source.financeRevision || 0) + 1,
+      });
+    }
     if (input.restock && input.status !== "received")
       throw bad("Restock only when receiving inspected items.");
     if (input.restock && !old.restocked) {
+      const sourceOrder = await findOrder(old.reference);
+      if (
+        sourceOrder?.inventoryAllocations?.some((a) =>
+          old.items.some((i) => i.productId === a.productId),
+        )
+      )
+        throw bad(
+          "Receive these inspected batch-tracked returns as a new dated batch in Suppliers & batches. Leave automatic restock unchecked.",
+        );
       const catalog = await getCatalog();
       for (const item of old.items) {
         const p = catalog.find((p) => p.id === item.productId);

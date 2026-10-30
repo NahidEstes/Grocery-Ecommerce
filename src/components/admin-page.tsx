@@ -1,4 +1,6 @@
 "use client";
+import { useShop } from "./shop-provider";
+import { useStoreFormat } from "./store-format";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import {
@@ -23,13 +25,15 @@ import { api } from "@/lib/client-api";
 import type { Product } from "@/lib/catalog";
 import type { StoreSettings, Review, SupportTicket } from "@/lib/storefront";
 import type { Order } from "@/lib/orders";
-import { formatDelivery, orderTime } from "@/lib/orders";
-import { money } from "@/lib/commerce";
+import { formatDelivery } from "@/lib/orders";
+
 import { ProductImage } from "./ui";
 import { can, isStaff, type Permission } from "@/lib/management";
 import { ManagementPanel } from "./admin-management";
 import { OrderOperationsPanel, CaseTools } from "./admin-operations";
 import { UnsavedProvider, useUnsaved, ImageUploadField } from "./admin-shared";
+import { OrderFinancePanel } from "./admin-finance";
+import { ProfileFields } from "./admin-profile";
 type Overview = {
   stockThreshold: number;
   support: SupportTicket[];
@@ -64,6 +68,8 @@ const tabs = [
   { id: "homepage", label: "Homepage editor", icon: Settings2 },
   { id: "catalog-tools", label: "Bulk updates & CSV", icon: Boxes },
   { id: "inventory", label: "Inventory & alerts", icon: Package },
+  { id: "purchasing", label: "Suppliers & batches", icon: Boxes },
+  { id: "languages", label: "English / বাংলা content", icon: Leaf },
   { id: "reports", label: "Sales & promo reports", icon: BarChart3 },
   { id: "search", label: "Search & alerts", icon: Search },
   { id: "returns", label: "Returns & refunds", icon: RefreshCw },
@@ -81,6 +87,8 @@ const tabPermissions: Record<string, Permission> = {
   homepage: "content",
   "catalog-tools": "products",
   inventory: "products",
+  purchasing: "purchasing",
+  languages: "content",
   reports: "reports",
   search: "content",
   returns: "returns",
@@ -96,6 +104,7 @@ export function AdminPage({ initialSection }: { initialSection?: string }) {
   );
 }
 function AdminWorkspace({ initialSection }: { initialSection?: string }) {
+  const { money, orderTime } = useStoreFormat();
   const { user, ready } = useAccount();
   const { confirmLeave, clean } = useUnsaved();
   const [data, setData] = useState<Overview | null>(null),
@@ -171,7 +180,8 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <Link href="/admin" className="admin-brand">
-          <Leaf size={24} /> FreshCart <small>STORE MANAGER</small>
+          <Leaf size={24} /> {data?.settings.profile.name || "Store"}{" "}
+          <small>STORE MANAGER</small>
         </Link>
         <nav aria-label="Administration">
           {tabs
@@ -248,6 +258,8 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
               "homepage",
               "catalog-tools",
               "inventory",
+              "purchasing",
+              "languages",
               "reports",
               "search",
               "returns",
@@ -268,7 +280,7 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
               {data.storage === "demo"
                 ? "Local demo data · Orders do not schedule real delivery."
                 : "MongoDB connected"}
-              <span>Online payments are verified by the gateway.</span>
+              <span>Configured online payments require server verification.</span>
             </div>
             {tab === "overview" && (
               <>
@@ -573,6 +585,14 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
                           ))}
                         </div>
                         <OrderOperationsPanel reference={o.reference} />
+                        {can(user?.role, "finance") && (
+                          <OrderFinancePanel
+                            reference={o.reference}
+                            onChange={() => {
+                              void load();
+                            }}
+                          />
+                        )}
                       </article>
                     ))}
                 </div>
@@ -939,7 +959,7 @@ function ProductEditor({
           {[
             {
               key: "price",
-              label: "Selling price (৳)",
+              label: "Selling price",
               min: 0.01,
               required: true,
             },
@@ -1167,6 +1187,7 @@ function SettingsEditor({
       onSubmit={submit}
       onChange={markDirty}
     >
+      <ProfileFields settings={draft} onChange={setDraft} />
       <section className="surface-card">
         <h2>Homepage sections</h2>
         <p>Choose the shelves your customers see.</p>
@@ -1281,8 +1302,27 @@ function SettingsEditor({
       </section>
       <section className="surface-card">
         <h2>Delivery coverage & charges</h2>
+        <button
+          type="button"
+          className="button outline small"
+          onClick={() =>
+            patch({
+              zones: [
+                ...draft.zones,
+                {
+                  name: `New area ${draft.zones.length + 1}`,
+                  enabled: true,
+                  fee: 40,
+                  estimate: "Choose an available delivery slot",
+                },
+              ],
+            })
+          }
+        >
+          Add delivery area
+        </button>
         <label>
-          Free delivery from (৳)
+          Free delivery from ({draft.profile.currency})
           <input
             type="number"
             min={1}
@@ -1292,7 +1332,22 @@ function SettingsEditor({
           />
         </label>
         {draft.zones.map((z, i) => (
-          <div className="settings-row" key={z.name}>
+          <div className="settings-row" key={i}>
+            <label>
+              Area name
+              <input
+                required
+                maxLength={80}
+                value={z.name}
+                onChange={(e) =>
+                  patch({
+                    zones: draft.zones.map((v, n) =>
+                      n === i ? { ...v, name: e.target.value } : v,
+                    ),
+                  })
+                }
+              />
+            </label>
             <label className="check-label">
               <input
                 type="checkbox"
@@ -1307,8 +1362,19 @@ function SettingsEditor({
               />
               {z.name}
             </label>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label={`Remove ${z.name}`}
+              disabled={draft.zones.length <= 1}
+              onClick={() =>
+                patch({ zones: draft.zones.filter((_, n) => n !== i) })
+              }
+            >
+              <Trash2 size={17} />
+            </button>
             <label>
-              Delivery fee (৳)
+              Delivery fee ({draft.profile.currency})
               <input
                 type="number"
                 min={0}
@@ -1341,7 +1407,7 @@ function SettingsEditor({
             </label>
           </div>
         ))}
-        <h3>Available time slots (Dhaka time)</h3>
+        <h3>Available time slots ({draft.profile.timeZone})</h3>
         <div className="checkbox-row">
           {draft.slots.map((s, i) => (
             <label key={s.id}>
@@ -1424,7 +1490,7 @@ function SettingsEditor({
               />
             </label>
             <label>
-              Maximum discount (৳)
+              Maximum discount ({draft.profile.currency})
               <input
                 type="number"
                 min={0}

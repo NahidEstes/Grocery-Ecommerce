@@ -12,10 +12,20 @@ import {
   replaceOrder,
   listOrders,
   databaseMode,
+  fenceSettings,
 } from "./store";
 import { orderSchema, bad } from "./validation";
 import type { z } from "zod";
 import { audit, stockEvent } from "./management-store";
+import { assertCancellationSettled } from "./finance-store";
+import { outstandingCodGuard } from "./checkout-guard";
+import { zonedDate, normalizePhone } from "../src/lib/store-profile";
+import { getBatches, changeBatchReservations } from "./inventory-store";
+import {
+  allocateBatches,
+  isExpired,
+  type BatchAllocation,
+} from "../src/lib/inventory";
 export const hash = (s: string) => createHash("sha256").update(s).digest("hex");
 export function tokenAccess(order: OrderRecord | null, token: string) {
   if (!order?.accessTokenHash || !token || token.length > 128) return false;
@@ -29,12 +39,16 @@ export function publicOrder(record: OrderRecord) {
     fingerprint: _fingerprint,
     paymentUrl: _url,
     gatewayValidationId: _validation,
+    inventoryAllocations: _allocations,
+    financeRevision: _financeRevision,
     ...order
   } = record;
   return order;
 }
 export const paymentsEnabled = () =>
-  (process.env.SSLCOMMERZ_LIVE !== "true" || databaseMode() === "mongodb") &&
+  (process.env.SSLCOMMERZ_LIVE !== "true" ||
+    (process.env.STORE_MODE === "production" &&
+      databaseMode() === "mongodb")) &&
   !!(
     process.env.SSLCOMMERZ_STORE_ID &&
     process.env.SSLCOMMERZ_STORE_PASSWORD &&
@@ -74,9 +88,18 @@ export async function placeOrder(
         throw bad("This checkout request has already been used.", 409);
       return { order: existing, created: false };
     }
+    await fenceSettings();
     const settings = await getSettings();
+    if (!normalizePhone(input.customer.phone, settings.profile))
+      throw bad("Enter a valid phone number for the store country.");
+    if (input.payment === "cash-on-delivery")
+      await outstandingCodGuard(input.customer.phone);
     if (
-      !isValidDelivery(input.deliverySelection) ||
+      !isValidDelivery(
+        input.deliverySelection,
+        new Date(),
+        settings.profile.timeZone,
+      ) ||
       !settings.slots.some(
         (s) => s.enabled && s.id === input.deliverySelection.slot,
       )
@@ -92,6 +115,11 @@ export async function placeOrder(
       throw bad(
         "Online payment requires an account and a configured payment gateway.",
       );
+    if (
+      input.payment === "online" &&
+      (settings.profile.currency !== "BDT" || settings.profile.country !== "BD")
+    )
+      throw bad("This payment adapter requires BDT and country BD.");
     const catalog = await getCatalog();
     const quantities = new Map<string, number>();
     for (const item of input.items)
@@ -103,6 +131,8 @@ export async function placeOrder(
       productId,
       quantity,
     }));
+    const batches = await getBatches();
+    const allocations: BatchAllocation[] = [];
     if (
       items.some((i) => {
         const p = catalog.find((p) => p.id === i.productId);
@@ -113,6 +143,25 @@ export async function placeOrder(
         "Some items are unavailable or exceed current stock. Please refresh your cart.",
         409,
       );
+    for (const item of items) {
+      const product = catalog.find((p) => p.id === item.productId)!;
+      try {
+        allocations.push(
+          ...allocateBatches(
+            product.id,
+            item.quantity,
+            product.stock,
+            batches,
+            input.deliverySelection.date,
+          ),
+        );
+      } catch {
+        throw bad(
+          "Some packs expire before your delivery date or are no longer available. Choose another date or refresh your basket.",
+          409,
+        );
+      }
+    }
     if (
       input.promo &&
       !settings.promos.some(
@@ -142,6 +191,8 @@ export async function placeOrder(
       throw bad("Online payment supports totals from ৳10 to ৳500,000.");
     const order: OrderRecord = {
       reference,
+      currency: settings.profile.currency,
+      timeZone: settings.profile.timeZone,
       customer: input.customer,
       items: items.map((i) => {
         const p = catalog.find((p) => p.id === i.productId)!;
@@ -159,13 +210,14 @@ export async function placeOrder(
       payment: input.payment,
       paymentStatus: input.payment === "online" ? "pending" : "unpaid",
       status: "placed",
-      mode: databaseMode(),
+      mode: process.env.STORE_MODE === "production" ? "mongodb" : "demo",
       deliverySelection: input.deliverySelection,
       instructions: input.instructions,
       accessTokenHash: hash(input.accessToken),
       fingerprint,
       createdAt: new Date().toISOString(),
       inventoryReserved: true,
+      inventoryAllocations: allocations,
       userId: user?.id,
       email: user?.email,
       sandbox:
@@ -173,6 +225,7 @@ export async function placeOrder(
           ? process.env.SSLCOMMERZ_LIVE !== "true"
           : undefined,
     };
+    await changeBatchReservations(allocations);
     await saveOrder(order);
     await audit(user || undefined, "order.placed", reference, "Order received");
     for (const item of items) {
@@ -198,7 +251,7 @@ export async function placeOrder(
 const transitions: Record<string, string[]> = {
   placed: ["preparing", "cancelled"],
   preparing: ["out-for-delivery", "cancelled"],
-  "out-for-delivery": ["delivered"],
+  "out-for-delivery": ["delivered", "cancelled"],
   delivered: [],
   cancelled: [],
 };
@@ -206,6 +259,7 @@ export async function changeStatus(
   reference: string,
   status: string,
   actor?: { id: string; name: string },
+  options: { stockRecovered?: boolean } = {},
 ) {
   return atomic(async () => {
     const order = await findOrder(reference);
@@ -214,19 +268,41 @@ export async function changeStatus(
     if (!transitions[order.status]?.includes(status))
       throw bad("This order status transition is not allowed.", 409);
     if (
+      ["preparing", "out-for-delivery"].includes(status) &&
+      order.inventoryAllocations?.length
+    ) {
+      const batches = await getBatches();
+      const today = zonedDate(
+        new Date(),
+        order.timeZone || (await getSettings()).profile.timeZone,
+      );
+      if (
+        order.inventoryAllocations.some((a) => {
+          const batch = batches.find((b) => b.id === a.batchId);
+          return !batch || isExpired(batch, today);
+        })
+      )
+        throw bad(
+          "A reserved batch has expired. Reconcile or cancel this order before fulfilment.",
+          409,
+        );
+    }
+    if (
       status !== "cancelled" &&
       order.payment === "online" &&
       order.paymentStatus !== "paid"
     )
       throw bad("Verify payment before preparing this order.", 409);
     if (status === "cancelled") {
-      if (order.paymentStatus === "paid" || order.paymentStatus === "review")
+      await assertCancellationSettled(order);
+      if (order.status === "out-for-delivery" && !options.stockRecovered)
         throw bad(
-          "Paid or review payments need a manual refund before cancellation.",
+          "Confirm physical stock recovery before cancelling an order sent for delivery.",
           409,
         );
       const catalog = await getCatalog();
       if (order.inventoryReserved) {
+        await changeBatchReservations(order.inventoryAllocations || [], true);
         for (const item of order.items) {
           const p = catalog.find((p) => p.id === item.productId);
           if (p)

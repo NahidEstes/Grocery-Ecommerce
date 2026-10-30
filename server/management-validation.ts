@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { translationsSchema } from "./content-language-validation";
 import { homeSectionIds } from "../src/lib/management";
 const key = z
   .string()
@@ -36,6 +37,7 @@ const banner = z.object({
 export const contentSchema = z
   .object({
     version: z.number().int().nonnegative(),
+    translations: translationsSchema,
     hero: banner.extend({ highlight: z.string().trim().min(1).max(80) }),
     banners: z.array(banner).length(2),
     showRegular: z.boolean(),
@@ -79,6 +81,7 @@ export const contentSchema = z
 export const recipeSchema = z
   .object({
     slug: key,
+    translations: translationsSchema,
     title: z.string().trim().min(2).max(100),
     eyebrow: z.string().trim().min(2).max(70),
     description: z.string().trim().min(10).max(400),

@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -15,10 +16,11 @@ import {
 } from "react";
 import { useShop } from "./shop-provider";
 import { searchProducts } from "@/lib/search";
-import { money } from "@/lib/commerce";
+
 import { ProductImage } from "./ui";
 
 export function SmartSearch() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { catalog } = useShop();
   const router = useRouter(),

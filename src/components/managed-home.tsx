@@ -16,12 +16,19 @@ import {
 } from "./ui";
 export function ManagedHomePage() {
   const { t } = useLanguage();
-  const { catalog, content } = useShop();
+  const { catalog, content, mode } = useShop();
   const deals = ["banana", "apple", "milk", "bread"].flatMap(
     (id) => catalog.find((p) => p.id === id) || [],
   );
   return (
     <div className="page-container home-page">
+      {mode === "demo" && (
+        <p className="demo-store-note">
+          {t(
+            "Demo store · Sample products and seasonal selections. Orders do not arrange delivery.",
+          )}
+        </p>
+      )}
       <div className="shop-layout">
         <CategorySidebar />
         <div className="shop-content">
@@ -29,7 +36,11 @@ export function ManagedHomePage() {
           <section
             className="hero"
             style={
-              content.hero.imageUrl
+              content.hero.imageUrl &&
+              ![
+                "/images/grocery-hero.png",
+                "/images/grocery-hero-1280.webp",
+              ].includes(content.hero.imageUrl)
                 ? ({
                     "--hero-image": `url("${content.hero.imageUrl}")`,
                   } as CSSProperties)

@@ -34,7 +34,7 @@ export function AccountPage() {
     setUser,
     signOut,
   } = useAccount();
-  const { items, notify, area } = useShop();
+  const { items, notify, area, settings } = useShop();
   const [mode, setMode] = useState<"login" | "register" | "forgot" | "reset">(
       "login",
     ),
@@ -112,7 +112,7 @@ export function AccountPage() {
         );
       }
       await refresh();
-      notify("Welcome to your FreshCart account.");
+      notify(`${t("Welcome to your account.")} ${settings.profile.name}`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -312,7 +312,7 @@ export function AccountPage() {
               )}
             </p>
             <img
-              src="/images/grocery-hero.png"
+              src="/images/grocery-hero-1280.webp"
               alt={t("A basket of colourful fresh groceries")}
             />
             <div>
@@ -338,7 +338,7 @@ export function AccountPage() {
             <p>
               {t(
                 mode === "register"
-                  ? "Create your FreshCart account."
+                  ? "Create your store account."
                   : mode === "forgot"
                     ? "We’ll email you a secure reset link."
                     : mode === "reset"

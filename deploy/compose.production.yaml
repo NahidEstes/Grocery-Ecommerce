@@ -1,0 +1,40 @@
+# Authenticated TLS replica set / Atlas required. Container execution unverified.
+services:
+  edge:
+    image: caddy:2
+    ports: ["80:80", "443:443"]
+    environment:
+      STORE_DOMAIN: ${STORE_DOMAIN:?Set STORE_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      store: { ipv4_address: 172.29.0.10 }
+    depends_on: [web, api]
+    restart: unless-stopped
+  api:
+    build: { context: .., target: api }
+    env_file: ../.env
+    environment:
+      STORE_MODE: production
+      API_HOST: 0.0.0.0
+      WEB_ORIGIN: https://${STORE_DOMAIN}
+      PUBLIC_API_URL: https://${STORE_DOMAIN}
+      MONGODB_URI: ${MONGODB_URI:?Set authenticated replica set URI}
+      CHECKOUT_IDENTITY_SECRET: ${CHECKOUT_IDENTITY_SECRET:?Set random shared secret}
+      TRUSTED_PROXY_CIDRS: 172.29.0.10/32
+    networks: [store]
+    restart: unless-stopped
+  web:
+    build: { context: .., target: web }
+    environment: { STORE_MODE: production, API_URL: "http://api:4100" }
+    networks: [store]
+    restart: unless-stopped
+networks:
+  store:
+    ipam:
+      config: [{ subnet: 172.29.0.0/24 }]
+volumes:
+  caddy-data:
+  caddy-config:

@@ -1,6 +1,6 @@
 {
   "name": "freshcart-grocery",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,11 +14,13 @@
     "start": "concurrently -k -n api,web \"npm:start:api\" \"npm:start:web\"",
     "start:web": "next start --hostname 127.0.0.1",
     "start:api": "tsx server/index.ts",
-    "typecheck": "tsc --noEmit --incremental false",
+    "typecheck": "next typegen && tsc --noEmit --incremental false",
     "test": "tsx --test tests/*.test.ts",
     "seed": "tsx server/seed.ts",
     "admin:promote": "tsx server/create-admin.ts",
-    "test:mongo": "tsx --test tests/mongo.integration.ts"
+    "test:mongo": "tsx --test tests/mongo.integration.ts",
+    "images:optimize": "node scripts/optimize-images.mjs",
+    "licenses:inventory": "node scripts/license-inventory.mjs"
   },
   "dependencies": {
     "cors": "^2.8.6",

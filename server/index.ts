@@ -1,5 +1,12 @@
 import "dotenv/config";
 import mongoose from "mongoose";
+import { validateRuntime } from "./store-mode";
+try {
+  validateRuntime();
+} catch (error) {
+  console.error((error as Error).message);
+  process.exit(1);
+}
 import { app } from "./app";
 import { initializeRepository } from "./repository";
 import { atomic } from "./repository";
@@ -27,7 +34,7 @@ const reservationTimer = setInterval(() => {
   );
 }, 60_000);
 reservationTimer.unref();
-const server = app.listen(port, "127.0.0.1", () =>
+const server = app.listen(port, process.env.API_HOST || "127.0.0.1", () =>
   console.log(
     `FreshCart API: http://127.0.0.1:${port} (${mongoose.connection.readyState === 1 ? "MongoDB" : "demo catalog"})`,
   ),

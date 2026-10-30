@@ -8,3 +8,7 @@ out/
 *.log
 .data/
 test-results/
+/artifacts/releases/
+/artifacts/buyer-smoke/
+/artifacts/release-preview-data/
+/artifacts/release-qa.ts

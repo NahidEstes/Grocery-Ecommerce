@@ -1,12 +1,83 @@
 import { z } from "zod";
+import { translationsSchema } from "./content-language-validation";
+import { defaultProfile, normalizePhone } from "../src/lib/store-profile";
+import type { StoreSettings } from "../src/lib/storefront";
 export const customerSchema = z.object({
   name: z.string().trim().min(2).max(80),
   phone: z
     .string()
     .trim()
-    .regex(/^(?:\+?88)?01[3-9]\d{8}$/),
+    .min(5)
+    .max(30)
+    .regex(/^[+\d\s().-]+$/),
   address: z.string().trim().min(10).max(300),
-  area: z.enum(["Dhanmondi", "Mirpur", "Uttara", "Gulshan"]),
+  area: z.string().trim().min(1).max(80),
+});
+export function validateCustomer(
+  customer: z.infer<typeof customerSchema>,
+  settings: StoreSettings,
+) {
+  if (!normalizePhone(customer.phone, settings.profile))
+    throw bad("Please enter a valid phone number for this store's country.");
+  if (
+    !settings.zones.some((zone) => zone.enabled && zone.name === customer.area)
+  )
+    throw bad("This delivery area is unavailable.");
+}
+export const profileSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  tagline: z.string().trim().max(150),
+  logoUrl: z
+    .string()
+    .refine(
+      (v) =>
+        /^\/(?!\/)[\w/.-]+\.(svg|png|webp|jpg)$/.test(v) ||
+        /^https:\/\//.test(v),
+      "Use a local asset path or HTTPS URL",
+    )
+    .max(500),
+  supportEmail: z.union([z.literal(""), z.email()]),
+  supportPhone: z.string().max(40),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .refine((v) => {
+      try {
+        return (
+          new Intl.NumberFormat("en", {
+            style: "currency",
+            currency: v,
+          }).resolvedOptions().maximumFractionDigits === 2 &&
+          Intl.supportedValuesOf("currency").includes(v)
+        );
+      } catch {
+        return false;
+      }
+    }, "Choose a supported currency with two decimal places"),
+  timeZone: z
+    .string()
+    .max(100)
+    .refine((v) => {
+      try {
+        new Intl.DateTimeFormat("en", { timeZone: v });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "Use a valid IANA time zone"),
+  country: z.string().regex(/^[A-Z]{2}$/),
+  city: z.string().trim().min(1).max(100),
+  postalCode: z.string().max(20),
+  callingCode: z.string().regex(/^[1-9]\d{0,3}$/),
+  nationalPrefix: z.string().regex(/^\d{0,3}$/),
+  nationalLengths: z.array(z.number().int().min(4).max(14)).min(1).max(8),
+  nationalStarts: z.array(z.string().regex(/^\d{1,5}$/)).max(30),
+  policies: z.object({
+    terms: z.string().min(10).max(6000),
+    privacy: z.string().min(10).max(6000),
+    returns: z.string().min(10).max(6000),
+    reservations: z.string().min(10).max(6000),
+  }),
 });
 export const addressSchema = customerSchema.extend({
   id: z.string().uuid(),
@@ -22,6 +93,7 @@ export const productSchema = z
     slug: key,
     parentId: key.optional(),
     name: z.string().trim().min(2).max(120),
+    translations: translationsSchema,
     category: key,
     unit: z.string().trim().min(1).max(60),
     price: z.number().min(0.01).max(500000).multipleOf(0.01),
@@ -70,6 +142,7 @@ export const productSchema = z
   );
 export const settingsSchema = z
   .object({
+    profile: profileSchema.default(defaultProfile),
     categories: z
       .array(
         z.object({
@@ -83,13 +156,14 @@ export const settingsSchema = z
     zones: z
       .array(
         z.object({
-          name: z.enum(["Dhanmondi", "Mirpur", "Uttara", "Gulshan"]),
+          name: z.string().trim().min(1).max(80),
           enabled: z.boolean(),
           fee: z.number().nonnegative().max(1000).multipleOf(0.01),
           estimate: z.string().min(1).max(160),
         }),
       )
-      .length(4),
+      .min(1)
+      .max(100),
     slots: z
       .array(
         z.object({

@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -15,10 +16,11 @@ import {
   X,
 } from "lucide-react";
 import { useShop } from "./shop-provider";
-import { cartTotals, money } from "@/lib/commerce";
+import { cartTotals } from "@/lib/commerce";
 import { ProductImage, QuantityControl } from "./ui";
 
 export function MiniCart() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const {
     miniCartOpen,

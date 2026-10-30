@@ -1,5 +1,4 @@
 import type { OrderReceipt, SavedAddress } from "./orders";
-import { deliveryAreas } from "./orders";
 
 const inMemoryReceipts = new Map<string, OrderReceipt>();
 export function forgetOrders() {
@@ -54,7 +53,9 @@ export function readAddresses(): SavedAddress[] {
           typeof item.name === "string" &&
           typeof item.phone === "string" &&
           typeof item.address === "string" &&
-          deliveryAreas.includes(item.area),
+          typeof item.area === "string" &&
+          item.area.length > 0 &&
+          item.area.length <= 80,
       )
       .slice(0, 8);
   } catch {

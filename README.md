@@ -1,149 +1,38 @@
-# FreshCart
+# বাংলা/English Grocery Ecommerce Starter with Admin
 
-Responsive Next.js grocery ecommerce site with an Express API and MongoDB/Mongoose storage. The local demo works without external credentials. Phone OTP is intentionally excluded.
+Version 1.1.0. A customizable Next.js / Express / MongoDB source-code starter with a credential-free local demo. Existing orange/green design and বাংলা / English storefront are preserved. Phone OTP is intentionally excluded.
 
-## Run
+Start with [Buyer quick start](docs/QUICKSTART.md). Copy .env.example to .env, then run npm ci and npm run dev. Default demo URLs are http://127.0.0.1:3000 and internal API 4100. For an optimized demo run npm run build then npm start, retaining explicit STORE_MODE=demo.
 
-Requires Node.js 20.19+ (tested on Node 24).
+## Included
 
-```sh
-npm install
-npm run dev
-```
+- Responsive catalog/search/filter/variants, favorites, cart/promo/delivery totals, checkout and guest/account orders.
+- Durable checkout attempt recovery; persisted checkout rate limits and normalized-phone COD outstanding caps.
+- Email/password accounts, saved addresses, regular purchases and personal shopping lists; hosted payment adapter when configured.
+- Homepage/recipe/product management and guarded Bengali/English merchant content editing.
+- Permission-scoped admin, order operations/print, stock audit, suppliers/batches/expiry, reports, support and moderated purchase reviews.
+- External reconciliation/refund ledger and a complete before-delivery cancellation workflow; delivered goods use returns. No money-transfer/refund API is included.
+- Central store identity, market/phone/timezone/currency, support, policy text and editable delivery areas.
+- PWA install help/offline fallback (no offline checkout/private-data cache), responsive WebP assets and locally hosted Bengali/English fonts.
 
-Open [FreshCart](http://127.0.0.1:3000/). Express listens at `127.0.0.1:4100`; Next.js proxies `/api` to it. `npm run build` creates the frontend production build; `npm start` starts both services. Set `NODE_ENV=production` on hosting and serve the web app over HTTPS. Keep Express behind the same-origin proxy. A separately configured but unavailable MongoDB stops startup instead of silently switching storage.
+## Buyer guides
 
-If port 3000 is occupied, run the web app with `npm run dev:web -- --port 3001` and the API with `WEB_ORIGIN=http://127.0.0.1:3001` in its environment. The current local preview uses [port 3001](http://127.0.0.1:3001/).
+- [Setup and admin creation](docs/QUICKSTART.md)
+- [Rebrand, language, market and product image replacement](docs/CUSTOMIZATION.md)
+- [Reconciliation/refunds, cancellation and reservation policy](docs/OPERATIONS.md)
+- [Deployment, environment, integrations, backup/restore and troubleshooting](docs/DEPLOYMENT.md)
+- [Verification evidence and unverified integrations](docs/VERIFICATION.md)
+- [Asset/license inventory](docs/ASSETS-LICENSES.md), [dependency inventory](docs/dependency-inventory.json)
+- [Commercial license draft](COMMERCIAL-LICENSE-DRAFT.md), [support/update draft](docs/SUPPORT-DRAFT.md), [changelog](CHANGELOG.md)
 
-## What is included
+## Commands
 
-The header has a keyboard-accessible **English / বাংলা** selector on desktop and mobile. It updates shopping navigation, bundled homepage/catalog copy, cart, checkout, accounts, lists, recipes and orders in place. A one-year `freshcart-language` cookie initializes the server-rendered language on subsequent visits, with English as the default. Switching languages keeps forms, account state and the basket mounted. Dates use the selected language and Dhaka time. Translation copy lives in `src/lib/locales/bn.json`; new merchant-written content and unknown service messages retain their original text until a translation is added. The admin editing workspace retains its English interface.
+Node 24 LTS recommended (tested locally on 24.20.0). npm ci uses the supplied lockfile. npm run typecheck, npm test and npm run build are the release checks. npm run test:mongo is optional and **skips** without MONGODB_TEST_URI; a skip is not verification. npm run images:optimize rebuilds WebP assets from the existing PNGs. npm run licenses:inventory refreshes dependency notices. In PowerShell, ./scripts/package-release.ps1 creates a source-only sanitized ZIP under artifacts/releases with a SHA-256 file manifest.
 
-| Page                   | Features                                                                                                                                                                                                                |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/`                    | Category photo tiles, delivery coverage checker, itemized breakfast/weekly/family baskets, offers, seasonal and new-arrival shelves, actual completed-purchase popularity, moderated verified reviews, FAQ              |
-| `/products`            | URL-backed category, search, organic, price, brand, dietary and pack-size filters; sort, pagination, saved items; mobile filter dialog                                                                                  |
-| `/products/apple-fuji` | Independent pack SKUs, prices and stock; unit comparisons; zoom, quantity and favourites; supplier details; verified reviews; sticky mobile purchase button                                                             |
-| `/cart`                | Quantities, relevant suggested products, configurable promos, area-based shipping and free-delivery progress                                                                                                            |
-| `/checkout`            | Guest/account addresses, five Dhaka delivery dates, configurable slots, instructions, current-price review, COD and configured hosted online checkout                                                                   |
-| `/orders`              | Account orders across devices plus guest browser receipts; buy again at current prices and stock                                                                                                                        |
-| `/orders/:reference`   | Immutable price snapshots, stored fulfilment timeline, private retrieval, address edits before preparation, payment state and support requests                                                                          |
-| `/account`             | Email/password registration and login, profile, up to eight addresses, cross-device basket, guest basket/address/order import and email password reset                                                                  |
-| `/admin`               | Overview, product/SKU/image URL/price/stock editing, categories, orders and permitted status transitions, low stock, bundles, promos, homepage sections, coverage, slots, FAQ, review moderation and support resolution |
+## Important boundaries
 
-The site preserves the selected orange/green design. Mobile bottom navigation connects Home, Categories, Cart and Orders. Prices per kg/litre/piece are calculated only when a pack measurement is available. Supplier-specific origin, nutrition, allergen and storage facts remain empty until entered. No customer reviews or sales figures are fabricated. Popularity and revenue exclude demo/sandbox orders; review eligibility requires a real delivered purchase. Empty shelves and reviews show honest empty states.
+Explicit STORE_MODE=production requires an authenticated MongoDB replica set/Atlas, HTTPS origins and a shared random checkout identity secret; the API fails startup without prerequisites and cannot fall back to local data during an outage. All storefront routes render dynamically; production API failure does not silently serve the sample catalog. Demo file storage is for local demonstration.
 
-The starting catalog is sample data with generated illustrative photos, 12 base products and 4 extra pack SKUs. Pack SKUs have independent inventory. Add banana, apple, milk and bread for the reference basket: subtotal ৳460 plus ৳40 delivery = ৳500. Default `FRESH10` discounts 10%, capped at ৳100; the admin can change these rules. Bundle prices sum their component products and do not imply a special discount.
+The included SSLCOMMERZ adapter is restricted to BDT/BD; other markets may use COD until a suitable adapter is implemented. Only two-decimal currencies are accepted, and currency is locked after the first order to protect historical reports. Reports show delivered sales before refunds, not settlement/profit. Admin UI remains English; untranslated merchant/service content falls back to its source language.
 
-## Store management workspace
-
-The administration workspace now includes the following tools. A section can be opened directly with `/admin?section=recipes`, `homepage`, `catalog-tools`, `inventory`, `reports`, `search`, `returns`, `team` or `activity`. Existing products, orders, settings, reviews and support tabs remain available.
-
-- **Recipe management:** create/edit/publish/unpublish recipes; set base servings, preparation time, product-linked ingredient measurements, pantry ingredients, steps, allergen notes and uploaded cover photos. Changes persist and published recipes appear on `/recipes` and their own public pages. Recipe version checks reject conflicting edits. No missing supplier facts are invented.
-- **Homepage editor:** hero copy/photo/button, two promotional banners, deal heading, regular-purchase and active-order toggles, editable section headings, visibility and ordering. The homepage settings and existing storefront section controls stay synchronized. Saves use a version check and the initial public page receives saved content from the server.
-- **Products:** per-SKU alert thresholds, search alternatives, upload/preview of PNG/JPEG/WebP photos up to 2 MB, and a reason for stock edits. The bulk workspace exports CSV, imports up to 100 rows/200 KB, validates a preview without mutating stock, and atomically applies reviewed changes. Existing SKUs require exported versions. CSV export escapes spreadsheet formulas; CSV imports support quoted commas/newlines and reject malformed numeric updates. New SKUs can specify the illustrative atlas number or an uploaded/HTTPS image URL.
-- **Orders:** internal notes, actor/time/status history, and printable invoice or packing-list views at `/admin/print/[reference]?kind=invoice` or `packing`. Notes and administrative activity are not included in customer order responses. Historical orders have no fabricated activity before tracking was introduced.
-- **Reports:** today/7/30/90-day periods, previous-period comparison, daily sales charts, and promo applications/delivered-order/discount/sales counts. Dhaka calendar boundaries are used. Customer records and demo/sandbox data are selectable separately. Sales mean delivered COD or verified online order totals, before refunds; this is not a payment settlement or profit report. Older orders without a stored promo code remain unattributed.
-- **Inventory:** configured low-stock alerts and movements for manual edits, batches, checkout reservations, cancellations and inspected returns. Changes record time, operator and reason. Automatic checkout stock entries identify the system rather than disclosing customer names to product editors.
-- **Search:** store-managed Bengali/English/local-name aliases tied to real SKUs, plus aggregated unsuccessful catalog searches with no account identity. Built-in bilingual vocabulary remains available. Search recording is rate limited.
-- **Reviews/support:** text/status filters, priority, permitted staff assignment and resolution duration. Important actions are recorded in the activity history.
-- **Returns/refunds:** customers or guest receipt holders can request affected packs from delivered orders. Staff review, reject, approve, receive/optionally restock inspected resaleable goods, queue refunds and record externally completed refunds with method and receipt reference. Purchased quantities and prior requests cap eligibility; discounted product value excludes delivery. Version checks and transactions prevent duplicate restoration. This workflow **does not transfer money or call a refund gateway**. Merchant reconciliation and actual payment occur outside the panel; recorded refunds do not automatically cancel paid orders.
-- **Editor feedback:** success/error notices, a sticky save action and in-panel Keep editing/Discard changes choices protect drafts when switching sections. Browser refresh/close retains the normal browser unsaved-change warning. Photo uploads must finish before a form can be saved.
-
-### Staff access
-
-| Role          | Access                                                                                         |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| Administrator | All tools, including staff role assignment                                                     |
-| Manager       | Reports, products, content, orders, reviews, support, returns and activity; no role assignment |
-| Editor        | Products, recipes/homepage/search content and review moderation                                |
-| Fulfilment    | Orders, printing, notes and customer support                                                   |
-| Customer      | Own account/orders/lists and eligible return requests                                          |
-
-All permissions are enforced by the API, including existing endpoints. Registration always creates a customer. Administrators can change an already registered account's role after reviewing it in Staff & permissions; the last administrator and self-demotion are protected. No invitations or external email messages are sent.
-
-Additional management endpoints include `/api/admin/content`, `/recipes/:slug`, `/products/preview`, `/products/batch`, `/inventory`, `/reports`, `/activity`, `/team`, `/cases`, `/returns`, `/orders/:reference/operations`, `/orders/:reference/notes`, `/orders/:reference/print` and `/media` under the `/api/admin` base. Public published recipes/content use `/api/recipes` and `/api/content`. Uploaded images are public assets served from `/api/media/:id` and persist in the same configured repository as other commerce entities; do not upload private documents there.
-
-The filesystem demo skips writes for read-only transactions and retries transient Windows replacement locks without deleting the existing store. Production MongoDB retains its transaction behavior. Type checking uses a fresh compiler pass to avoid stale incremental diagnostics alongside the development server.
-
-## Accounts and administrator setup
-
-Register your own email/password at `/account`, then promote that existing account from the project terminal:
-
-```sh
-npm run admin:promote -- your-email@example.com
-```
-
-Refresh `/account` or `/admin`. There is no default administrator password or public role-assignment API. Registration always creates a customer. Passwords use salted scrypt hashes; session tokens are opaque, stored hashed on the server and sent in HttpOnly, SameSite cookies (Secure on HTTPS/production). Logout revokes the session. Resetting a password invalidates existing sessions. Mutation routes check the allowed origin and JSON content type; sign-in/reset endpoints rate-limit attempts. Guest order receipt tokens are hashed and sent in authorization headers, never order URLs.
-
-Signing in merges the current guest basket and addresses into the account and claims guest orders only when the browser supplies their private access receipts. Signing out clears the browser’s cart, addresses and receipts. Favourites and delivery area are local browser preferences. Anonymous users can still check out.
-
-## Storage and MongoDB
-
-Copy `.env.example` to `.env` and configure `MONGODB_URI` for an Atlas database or a MongoDB replica set. Transactions are required for atomic stock/order updates; standalone MongoDB is rejected at startup.
-
-```sh
-npm run seed
-npm run dev
-```
-
-The seed adds missing sample products without replacing existing ones. Commerce entities (catalog overrides, accounts, sessions, settings, orders, reviews, payment mappings and support tickets) persist in the indexed `StoreEntity` Mongoose collection. Existing Product/Order model records remain readable. Entity writes within checkout/status/account operations use MongoDB transactions.
-
-Without MongoDB, data persists in ignored `.data/store.json`. Atomic replacement and an inter-process file lock protect local transactions. Earlier `.data/orders/*.json` demo receipts remain readable and migrate on update. Local demo accounts/orders are deliberately separate from MongoDB; enabling MongoDB does not import local private data automatically. Do not use the demo filesystem as hosted commerce storage.
-
-Checkout checks current stock, prices, coverage, time slots, consent and promos on the server. The UI supplies an expected total solely to detect price changes, never to determine the charge. Changed totals require another review. Idempotent retries reserve stock once. Valid cancellation restores reserved stock once; older demo orders without inventory reservations do not increase stock. Product edits use a version check to prevent overwriting stock changed during editing. Delivered order snapshots keep their original prices.
-
-## Personal shopping and recipe baskets
-
-- The homepage shows the signed-in customer's frequent purchases from their own uncancelled orders, at current catalog prices. Unpaid online orders do not contribute. The active-order banner uses saved fulfilment/payment status and refreshes on focus, navigation and every visible minute; it offers a manual refresh. Demo orders are explicitly labelled.
-- The header searches Bengali, English and common transliterations with keyboard-accessible product suggestions, photos, pack sizes and prices. The same matching applies to the catalog results and list editor.
-- `/lists` stores named account-owned lists with notes, desired pack quantities, edit, archive/restore and save-current-basket actions. Lists sync through the API on other devices. Version checks reject conflicting edits. List quantities remain intact when stock falls; adding checks current price and remaining stock, reports limitations and preserves the list.
-- `/recipes` and `/recipes/[slug]` offer three starter recipes, 2–8 servings, whole-pack conversion, alternate pack sizes and ingredient checkboxes. Pantry seasonings are excluded. Ingredient totals cover purchased packs, with shipping calculated in the basket. Quantities are added to the existing basket, so customers can untick ingredients they already have.
-- The header basket opens a modal side drawer with quantity/removal controls, current prices, delivery/promo totals, free-delivery progress, save-as-list and checkout links. Escape restores focus to the basket button.
-
-Personal shopping endpoints: `GET /api/me/shopping`, `POST /api/me/lists`, `PUT /api/me/lists/:id`, `PATCH /api/me/lists/:id/archive`. Authentication and ownership are enforced server-side; summaries exclude addresses and receipt secrets. Each account can keep 20 active lists with up to 50 products and 100 packs per product. Lists use the existing MongoDB/demo repository; no new service credentials are needed.
-
-## Password reset email
-
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, optionally `SMTP_USER`/`SMTP_PASSWORD`, and `MAIL_FROM`. Set `WEB_ORIGIN` to the actual site origin. Reset links expire in 30 minutes, are single use, and are not returned by the API or printed in application logs. The reset UI is at `/account`. Without SMTP, login/registration work and the reset form explains that email delivery is not configured. Transport uses [Nodemailer SMTP](https://nodemailer.com/smtp).
-
-## bKash and card payments
-
-Integration uses [SSLCOMMERZ hosted checkout](https://developer.sslcommerz.com/doc/v4/), where available bKash/card channels depend on the merchant account. FreshCart does not collect card details.
-
-1. Start with sandbox merchant credentials in `SSLCOMMERZ_STORE_ID` and `SSLCOMMERZ_STORE_PASSWORD`; leave `SSLCOMMERZ_LIVE=false`.
-2. Configure the public HTTPS `WEB_ORIGIN` and `PUBLIC_API_URL`. `PUBLIC_API_URL` is the API base without `/api`. The gateway must be able to POST to `/api/payments/ipn` and `/api/payments/return`.
-3. Verify sandbox success, decline, cancel, interrupted return and IPN delivery with your merchant account before changing to live credentials. Live mode also requires MongoDB.
-
-Online payment requires an account email. Gateway session creation and validation happen on the server. Amount, currency, transaction ID, validation ID and risk result are checked. Return URLs and caller-supplied status alone cannot mark an order paid. Duplicate validated callbacks are idempotent. A risky or late payment on a cancelled reservation is marked for review and cannot enter fulfilment. Paid/review orders require manual reconciliation/refund before cancellation; automated refunds are not implemented.
-
-An unpaid online order reserves stock for 30 minutes. The API sweeps expired reservations every minute and before new checkout/admin/payment actions. An ambiguous gateway initialization is not retried with a second transaction; refresh the order and reconcile or let its reservation expire. External gateway calls occur outside MongoDB transaction retry callbacks. Missing gateway credentials keep online payment disabled. No real merchant sandbox/live transaction has been performed in this workspace.
-
-## API groups
-
-- Public: `/api/health`, `/api/catalog`, `/api/products`, `/api/products/:slug`, `/api/categories`, `/api/storefront`, `/api/reviews`.
-- Authentication: `POST /api/auth/register`, `/login`, `/logout`, `/forgot`, `/reset`; `GET /api/auth/session`.
-- Account: `GET/PATCH /api/me`, `GET/PUT /api/me/cart`, `GET /api/me/orders`, `POST /api/me/import`.
-- Checkout: `POST /api/orders`; private `GET /api/orders/:reference`, `PATCH .../address`, `POST .../pay`, `POST .../support`.
-- Admin: `GET /api/admin/overview`, `PUT /api/admin/products/:id`, `PUT /api/admin/settings`, `PATCH /api/admin/orders/:reference`, `PATCH /api/admin/reviews/:id`, `PATCH /api/admin/support/:id`.
-- Gateway: `POST /api/payments/ipn`, `GET/POST /api/payments/return`.
-
-All admin endpoints enforce the role on the server. Private order reads require an owner/admin session or the matching guest receipt. Responses use `private, no-store` and strip secret hashes and gateway validation IDs.
-
-## Validation
-
-```sh
-npm run typecheck
-npm test
-npm run build
-```
-
-Tests use isolated temporary stores. They cover registration/roles, session privacy, separate-device account access, guest ownership proofs, password reset/revocation, server pricing, concurrent stock limits, duplicate checkout, cancellation, status transitions, settings, verified review moderation, delivery date boundaries and mocked gateway verification/replay/expiry. Browser QA covers desktop/mobile views, registration/import, administrator product/settings saves, variant addition, mobile filter results, account checkout, support submission and reorder.
-
-For a real MongoDB transaction check, set `MONGODB_TEST_URI` to a **test replica-set server** and run `npm run test:mongo`. The check creates a uniquely named `freshcart_test_*` database and drops only that test database afterwards. MongoDB checks remain unverified here because no database service/credentials are configured; a temporary-server download was unavailable.
-
-## Assets and remaining service setup
-
-Design prompts are in `design-concepts/`. Generated site photos are local in `public/images/`; products can use admin-configured HTTPS image URLs. DM Sans has a system-font fallback. Screenshots and verification notes are in `artifacts/`.
-
-Before taking real orders, configure MongoDB, SMTP and the merchant gateway; enter actual supplier facts, prices, stock, delivery coverage, customer policies and business support procedures. Fulfilment status is managed by the admin; there is no courier GPS integration. Support requests are stored in the admin panel and do not send external email/SMS notifications. No deployment was requested; this project remains local.
+Real MongoDB transactions/restart/multiple-instance behavior, provider sandbox transactions, SMTP delivery and Docker/HTTPS deployment are **unverified** where services or credentials are unavailable. See the measured verification report before making sales claims. No public deployment is included. Image/code ownership review and commercial/support terms must be finalized by the seller; the supplied license is explicitly a draft.

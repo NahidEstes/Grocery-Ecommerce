@@ -18,7 +18,7 @@
       #fff0b8cc 42%,
       #fff0b800 68%
     ),
-    var(--hero-image, url("/images/grocery-hero.png"));
+    var(--hero-image, url("/images/grocery-hero-1280.webp"));
 }
 .language-switcher select {
   width: 73px;
@@ -36,7 +36,7 @@
   outline-offset: 3px;
 }
 html[lang="bn"] body {
-  font-family: Arial, "Nirmala UI", "Vrinda", sans-serif;
+  font-family: var(--font-bengali), var(--font-latin), "Nirmala UI", sans-serif;
   line-height: 1.6;
 }
 html[lang="bn"] .hero h1 {
@@ -89,7 +89,7 @@ html[lang="bn"] .product-name {
         #fff0b8e6 64%,
         #fff0b800 78%
       ),
-      var(--hero-image, url("/images/grocery-hero.png"));
+      var(--hero-image, url("/images/grocery-hero-1280.webp"));
   }
   html[lang="bn"] .hero h1 {
     font-size: 30px;

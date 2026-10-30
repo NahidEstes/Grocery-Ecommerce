@@ -1,4 +1,6 @@
 import "dotenv/config";
+import { validateRuntime } from "./store-mode";
+validateRuntime();
 import mongoose from "mongoose";
 import { userByEmail, saveUser } from "./auth";
 import { atomic, initializeRepository } from "./repository";

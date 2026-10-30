@@ -1,3 +1,4 @@
+import { zonedDate } from "../src/lib/store-profile";
 import { products, type Product } from "../src/lib/catalog";
 import { defaultSettings, type StoreSettings } from "../src/lib/storefront";
 import type { Review } from "../src/lib/storefront";
@@ -14,6 +15,9 @@ import {
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { getContent } from "./management-store";
+import { assertBatchStock, getBatches } from "./inventory-store";
+import { stockSummary } from "../src/lib/inventory";
+import { profileFor } from "../src/lib/store-profile";
 export function databaseMode() {
   return mongo() ? ("mongodb" as const) : ("demo" as const);
 }
@@ -23,59 +27,82 @@ export async function getCatalog(): Promise<Product[]> {
   if (mongo()) {
     const catalog = await ProductModel.find(
       {},
-      { _id: 0, __v: 0, createdAt: 0, updatedAt: 0 },
+      { _id: 0, __v: 0, updatedAt: 0 },
     ).lean();
-    return catalog.map((p) => ({ ...p, rating: 0 })) as unknown as Product[];
+    return catalog.map((p) => ({
+      ...p,
+      createdAt: p.createdAt?.toISOString(),
+      rating: 0,
+    })) as unknown as Product[];
   }
   return structuredClone(products);
 }
 export async function saveCatalog(catalog: Product[]) {
+  await assertBatchStock(catalog);
   await writeEntity("catalog", catalog);
 }
 export async function getPublicCatalog() {
-  const catalog = await getCatalog();
-  const content = await getContent();
-  const reviews = (await listEntities<Review>("review:")).filter(
-    (r) => r.status === "approved",
-  );
-  return catalog
-    .filter((p) => p.active !== false)
-    .map((p) => {
-      const id = p.parentId || p.id;
-      const group = reviews.filter((r) => {
-        const sku = catalog.find((v) => v.id === r.productId);
-        return (sku?.parentId || sku?.id) === id;
+  return atomic(async () => {
+    const catalog = await getCatalog();
+    const batches = await getBatches();
+    const today = zonedDate(new Date(), (await getSettings()).profile.timeZone);
+    const content = await getContent();
+    const reviews = (await listEntities<Review>("review:")).filter(
+      (r) => r.status === "approved",
+    );
+    return catalog
+      .filter((p) => p.active !== false)
+      .map((p) => {
+        const id = p.parentId || p.id;
+        const group = reviews.filter((r) => {
+          const sku = catalog.find((v) => v.id === r.productId);
+          return (sku?.parentId || sku?.id) === id;
+        });
+        return {
+          ...p,
+          stock: stockSummary(
+            p.stock,
+            batches.filter((b) => b.productId === p.id),
+            today,
+          ).sellable,
+          searchTerms: [
+            ...(p.searchTerms || []),
+            ...content.aliases
+              .filter(
+                (a) =>
+                  a.productIds.includes(p.id) ||
+                  (!!p.parentId && a.productIds.includes(p.parentId)),
+              )
+              .map((a) => a.term),
+          ],
+          rating: group.length
+            ? Number(
+                (
+                  group.reduce((n, r) => n + r.rating, 0) / group.length
+                ).toFixed(1),
+              )
+            : 0,
+        };
       });
-      return {
-        ...p,
-        searchTerms: [
-          ...(p.searchTerms || []),
-          ...content.aliases
-            .filter(
-              (a) =>
-                a.productIds.includes(p.id) ||
-                (!!p.parentId && a.productIds.includes(p.parentId)),
-            )
-            .map((a) => a.term),
-        ],
-        rating: group.length
-          ? Number(
-              (group.reduce((n, r) => n + r.rating, 0) / group.length).toFixed(
-                1,
-              ),
-            )
-          : 0,
-      };
-    });
+  });
 }
 export async function getSettings(): Promise<StoreSettings> {
-  return (
+  const settings =
     (await readEntity<StoreSettings>("settings")) ||
-    structuredClone(defaultSettings)
-  );
+    structuredClone(defaultSettings);
+  return { ...settings, profile: profileFor(settings.profile) };
 }
 export async function saveSettings(settings: StoreSettings) {
-  await writeEntity("settings", settings);
+  await atomic(async () => {
+    await fenceSettings();
+    await writeEntity("settings", settings);
+  });
+}
+// Serialize merchant-setting edits against a checkout using those settings.
+// This prevents a first-order/currency-edit write skew across API instances.
+export async function fenceSettings() {
+  const old = await readEntity<{ revision: number }>("settings-fence");
+  await writeEntity("settings-fence", { revision: (old?.revision || 0) + 1 });
 }
 export async function findOrder(
   reference: string,

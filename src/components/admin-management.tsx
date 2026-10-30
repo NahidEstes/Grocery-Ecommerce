@@ -15,6 +15,8 @@ import {
   ReturnsPanel,
 } from "./admin-operations";
 import { Notice } from "./admin-shared";
+import { PurchasingPanel } from "./admin-purchasing";
+import { ContentLanguages } from "./admin-languages";
 export function ManagementPanel({
   tab,
   products,
@@ -45,6 +47,9 @@ export function ManagementPanel({
     return result.content;
   }
   if (tab === "reports") return <ReportsPanel />;
+  if (tab === "purchasing") return <PurchasingPanel reload={reload} />;
+  if (tab === "languages")
+    return <ContentLanguages products={products} reload={reload} />;
   if (tab === "inventory") return <InventoryPanel products={products} />;
   if (tab === "activity") return <ActivityPanel />;
   if (tab === "team") return <TeamPanel />;

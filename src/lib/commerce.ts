@@ -1,10 +1,10 @@
 import type { Product } from "./catalog";
 import { defaultSettings, type StoreSettings } from "./storefront";
+import { currencyText } from "./store-profile";
 export type CartItem = { productId: string; quantity: number };
 export const FREE_DELIVERY_AT = 1000;
 export const DELIVERY_FEE = 40;
-export const money = (value: number) =>
-  `৳ ${value.toLocaleString("en-BD", { maximumFractionDigits: 2 })}`;
+export const money = currencyText;
 export function cartTotals(
   items: CartItem[],
   catalog: Product[],

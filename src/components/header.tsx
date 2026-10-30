@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -15,7 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { cartTotals, money } from "@/lib/commerce";
+import { cartTotals } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
 import { CategorySidebar, Modal } from "./ui";
 import { useAccount } from "./account-provider";
@@ -26,22 +27,31 @@ import { isStaff } from "@/lib/management";
 import { LanguageSwitcher } from "./language-provider";
 export function Brand() {
   const { t } = useLanguage();
+  const {
+    settings: { profile },
+  } = useShop();
   return (
-    <Link href="/" className="brand" aria-label={t("FreshCart home")}>
+    <Link href="/" className="brand" aria-label={`${profile.name} home`}>
       <span className="brand-symbol">
-        <ShoppingBag size={33} strokeWidth={2.5} />
-        <Leaf className="brand-leaf" size={20} fill="currentColor" />
+        <img src={profile.logoUrl} alt="" width={43} height={43} />
       </span>
       <span>
         <span className="brand-name">
-          Fresh<span>Cart</span>
+          {profile.name === "FreshCart" ? (
+            <>
+              Fresh<span>Cart</span>
+            </>
+          ) : (
+            profile.name
+          )}
         </span>
-        <small>{t("Good food. Brighter days.")}</small>
+        <small>{t(profile.tagline)}</small>
       </span>
     </Link>
   );
 }
 export function Header() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { user } = useAccount();
   const { items, catalog, area, setArea, saved, settings, setMiniCartOpen } =
@@ -84,7 +94,8 @@ export function Header() {
               <small>{t("Deliver to")}</small>
               <strong>
                 {area}
-                {t(", Dhaka")}
+                {", "}
+                {settings.profile.city}
                 <ChevronDown size={12} />
               </strong>
             </span>
@@ -200,7 +211,10 @@ export function Header() {
                   <MapPin size={20} />
                   <span>
                     <strong>{t(option)}</strong>
-                    <small>{t("Dhaka · Delivery slots at checkout")}</small>
+                    <small>
+                      {settings.profile.city} ·{" "}
+                      {t("Delivery slots at checkout")}
+                    </small>
                   </span>
                   {area === option && <span className="area-check">✓</span>}
                 </button>

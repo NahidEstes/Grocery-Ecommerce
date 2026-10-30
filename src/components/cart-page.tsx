@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -15,7 +16,7 @@ import {
   Truck,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { cartTotals, FREE_DELIVERY_AT, money } from "@/lib/commerce";
+import { cartTotals, FREE_DELIVERY_AT } from "@/lib/commerce";
 import { useShop } from "./shop-provider";
 import {
   Benefits,
@@ -28,6 +29,7 @@ import {
 import { CheckoutSteps } from "./order-ui";
 
 export function CartPage() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const {
     items,

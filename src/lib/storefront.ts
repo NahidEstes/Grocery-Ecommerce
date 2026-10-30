@@ -1,6 +1,11 @@
 import type { Product } from "./catalog";
 import type { SavedAddress } from "./orders";
 import { translate, type Locale } from "./i18n";
+import {
+  defaultProfile,
+  currencyText,
+  type StoreProfile,
+} from "./store-profile";
 export type SupportTicket = {
   id: string;
   reference: string;
@@ -25,6 +30,7 @@ export type Bundle = {
   active: boolean;
 };
 export type StoreSettings = {
+  profile: StoreProfile;
   categories: { slug: string; name: string; atlas: number }[];
   zones: { name: string; enabled: boolean; fee: number; estimate: string }[];
   slots: { id: "morning" | "afternoon" | "evening"; enabled: boolean }[];
@@ -57,6 +63,7 @@ export type Review = {
   createdAt: string;
 };
 export const defaultSettings: StoreSettings = {
+  profile: defaultProfile,
   categories: [
     { slug: "fruits", name: "Fresh fruits", atlas: 1 },
     { slug: "vegetables", name: "Vegetables", atlas: 4 },
@@ -119,7 +126,7 @@ export const defaultSettings: StoreSettings = {
     {
       question: "Where do you deliver?",
       answer:
-        "Select your area in the delivery checker to see coverage and charges. Available dates and times are shown at checkout, in Dhaka time.",
+        "Select your area in the delivery checker to see coverage and charges. Available dates and times use the store timezone shown at checkout.",
     },
     {
       question: "How is the delivery fee calculated?",
@@ -145,7 +152,11 @@ export const defaultSettings: StoreSettings = {
     reviews: true,
   },
 };
-export function unitPrice(product: Product, locale: Locale = "en") {
+export function unitPrice(
+  product: Product,
+  locale: Locale = "en",
+  currency = "BDT",
+) {
   if (!product.measure || !product.measureUnit) return "";
-  return `৳ ${Number((product.price / product.measure).toFixed(2)).toLocaleString("en-BD")} / ${translate(locale, product.measureUnit)}`;
+  return `${currencyText(Number((product.price / product.measure).toFixed(2)), currency)} / ${translate(locale, product.measureUnit)}`;
 }

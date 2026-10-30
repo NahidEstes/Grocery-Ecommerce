@@ -13,7 +13,13 @@ import {
 import { currentUser } from "./auth";
 import { accountRoutes } from "./account-routes";
 import { adminRoutes } from "./admin-routes";
-import { customerSchema, orderSchema, bad } from "./validation";
+import {
+  customerSchema,
+  orderSchema,
+  bad,
+  validateCustomer,
+} from "./validation";
+import { storeMode } from "./store-mode";
 import { atomic, listEntities } from "./repository";
 import {
   publicOrder,
@@ -31,10 +37,19 @@ import { writeEntity } from "./repository";
 import { getPublicCatalog } from "./store";
 import { shoppingRoutes } from "./shopping-routes";
 import { managementRoutes } from "./management-routes";
+import { inventoryRoutes } from "./inventory-routes";
+import { financeRoutes } from "./finance-routes";
+import { checkoutRateLimit } from "./checkout-guard";
 import { getContent, getRecipes } from "./management-store";
 import { can } from "../src/lib/management";
 export const app = express();
 app.disable("x-powered-by");
+app.set(
+  "trust proxy",
+  process.env.TRUSTED_PROXY_CIDRS?.split(",")
+    .map((s) => s.trim())
+    .filter(Boolean) || false,
+);
 app.use(
   cors({
     origin: process.env.WEB_ORIGIN || "http://127.0.0.1:3000",
@@ -69,11 +84,18 @@ app.use((req, res, next) => {
   next();
 });
 app.get("/api/health", (_req, res) =>
-  res.json({ status: "ok", service: "freshcart-api", storage: databaseMode() }),
+  res.json({
+    status: "ok",
+    service: "freshcart-api",
+    mode: storeMode(),
+    storage: databaseMode(),
+  }),
 );
 app.use("/api", accountRoutes);
 app.use("/api", shoppingRoutes);
 app.use("/api", managementRoutes);
+app.use("/api", inventoryRoutes);
+app.use("/api", financeRoutes);
 app.use("/api", adminRoutes);
 app.get("/api/storefront", async (_req, res) => {
   const settings = await getSettings();
@@ -96,11 +118,15 @@ app.get("/api/storefront", async (_req, res) => {
     content: await getContent(),
     recipes: (await getRecipes()).filter((r) => r.active !== false),
     settings,
+    mode: storeMode(),
     popularIds: [...sales].sort((a, b) => b[1] - a[1]).map(([id]) => id),
     reviews,
     storage: databaseMode(),
     payments: {
-      enabled: paymentsEnabled(),
+      enabled:
+        paymentsEnabled() &&
+        settings.profile.currency === "BDT" &&
+        settings.profile.country === "BD",
       sandbox: process.env.SSLCOMMERZ_LIVE !== "true",
     },
   });
@@ -139,7 +165,7 @@ app.get("/api/products", async (req, res) => {
   );
 });
 app.get("/api/products/:slug", async (req, res) => {
-  const product = (await getCatalog()).find(
+  const product = (await getPublicCatalog()).find(
     (p) => p.active !== false && p.slug === req.params.slug,
   );
   if (!product) throw bad("Product not found.", 404);
@@ -163,6 +189,7 @@ async function access(req: express.Request, reference: string) {
   return order;
 }
 app.post("/api/orders", async (req, res) => {
+  await checkoutRateLimit(req);
   const input = orderSchema.parse(req.body);
   const user = await currentUser(req);
   await atomic(expirePending);
@@ -190,6 +217,17 @@ app.post("/api/orders", async (req, res) => {
     paymentError,
   });
 });
+app.get("/api/checkout-attempt/:requestId", async (req, res) => {
+  const id = z.uuid().parse(req.params.requestId),
+    reference = `FC-${id.replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+  const order = await access(req, reference);
+  res.json({
+    reference: order.reference,
+    total: order.total,
+    createdAt: order.createdAt,
+    order: publicOrder(order),
+  });
+});
 app.get("/api/orders/:reference", async (req, res) =>
   res.json({
     order: publicOrder(await access(req, req.params.reference as string)),
@@ -198,6 +236,7 @@ app.get("/api/orders/:reference", async (req, res) =>
 app.patch("/api/orders/:reference/address", async (req, res) => {
   const order = await access(req, req.params.reference as string);
   const customer = customerSchema.parse(req.body?.customer);
+  validateCustomer(customer, await getSettings());
   if (
     !(await getSettings()).zones.some(
       (z) => z.name === customer.area && z.enabled,
@@ -290,6 +329,11 @@ app.use(
     const status =
       Number((error as { status?: number }).status) ||
       (error instanceof SyntaxError ? 400 : 500);
+    if ((error as { retryAfter?: number }).retryAfter)
+      res.set(
+        "Retry-After",
+        String((error as { retryAfter: number }).retryAfter),
+      );
     const expose = !!(error as { expose?: boolean }).expose;
     if (status >= 500 && !expose)
       console.error(

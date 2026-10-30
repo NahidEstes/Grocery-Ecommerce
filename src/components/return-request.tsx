@@ -1,11 +1,12 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client-api";
 import type { Order } from "@/lib/orders";
 import type { ReturnRequest } from "@/lib/management";
-import { money } from "@/lib/commerce";
+
 export function CustomerReturns({
   order,
   token,
@@ -13,6 +14,7 @@ export function CustomerReturns({
   order: Order;
   token: string;
 }) {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const [requests, setRequests] = useState<
       Pick<ReturnRequest, "id" | "status" | "reason" | "amount" | "items">[]

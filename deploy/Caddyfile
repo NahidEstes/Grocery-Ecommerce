@@ -1,0 +1,9 @@
+{$STORE_DOMAIN} {
+  # Only this proxy's fixed private address is trusted by Express.
+  handle /api/* {
+    reverse_proxy api:4100
+  }
+  handle {
+    reverse_proxy web:3000
+  }
+}

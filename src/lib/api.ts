@@ -1,9 +1,12 @@
 import { products, type Product } from "./catalog";
 import { type Recipe } from "./recipes";
 import { defaultContent, type ContentConfig } from "./management";
+import { defaultSettings, type StoreSettings } from "./storefront";
 export async function loadStorefront(): Promise<{
   content: ContentConfig;
   recipes: Recipe[];
+  settings: StoreSettings;
+  mode: "demo" | "production";
 }> {
   try {
     const response = await fetch(
@@ -16,12 +19,30 @@ export async function loadStorefront(): Promise<{
     )
       throw new Error("Unavailable");
     const data = await response.json();
+    if (process.env.STORE_MODE === "production" && data.mode !== "production")
+      throw new Error(
+        "Store mode mismatch: production web requires a production API.",
+      );
     return {
+      settings: data.settings,
+      mode: data.mode === "production" ? "production" : "demo",
       content: data.content || defaultContent,
       recipes: Array.isArray(data.recipes) ? data.recipes : [],
     };
-  } catch {
-    return { content: defaultContent, recipes: [] };
+  } catch (error) {
+    if (
+      process.env.STORE_MODE === "production" ||
+      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
+    )
+      throw new Error("Store service unavailable. Please try again shortly.", {
+        cause: error,
+      });
+    return {
+      content: defaultContent,
+      recipes: [],
+      settings: defaultSettings,
+      mode: "demo",
+    };
   }
 }
 export async function loadRecipes(): Promise<Recipe[]> {
@@ -37,7 +58,14 @@ export async function loadRecipes(): Promise<Recipe[]> {
       throw new Error("Unavailable");
     const data = await response.json();
     return data.recipes;
-  } catch {
+  } catch (error) {
+    if (
+      process.env.STORE_MODE === "production" ||
+      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
+    )
+      throw new Error("Store service unavailable. Please try again shortly.", {
+        cause: error,
+      });
     return [];
   }
 }
@@ -64,7 +92,14 @@ export async function loadCatalog(): Promise<Product[]> {
     )
       throw new Error("Invalid catalog response");
     return data.products;
-  } catch {
+  } catch (error) {
+    if (
+      process.env.STORE_MODE === "production" ||
+      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
+    )
+      throw new Error("Store catalog unavailable. Please try again shortly.", {
+        cause: error,
+      });
     // The bundled catalog also lets the web app build and preview independently.
     return products;
   }

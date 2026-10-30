@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { OrderRecord } from "../src/lib/orders";
 import { atomic, readEntity, writeEntity } from "./repository";
-import { findOrder, replaceOrder } from "./store";
+import { findOrder, replaceOrder, getSettings } from "./store";
 import { bad } from "./validation";
 import { paymentsEnabled } from "./checkout";
 const host = () =>
@@ -9,6 +9,16 @@ const host = () =>
     ? "https://securepay.sslcommerz.com"
     : "https://sandbox.sslcommerz.com";
 export async function initiatePayment(order: OrderRecord) {
+  const { profile } = await getSettings();
+  if (
+    profile.currency !== "BDT" ||
+    profile.country !== "BD" ||
+    (order.currency && order.currency !== "BDT")
+  )
+    throw bad(
+      "This starter's SSLCOMMERZ adapter supports BDT/Bangladesh only. Use COD or a compatible gateway adapter for other store configurations.",
+      409,
+    );
   const fresh = await atomic(async () => {
     if (!paymentsEnabled())
       throw bad("Payment gateway is not configured.", 503);
@@ -38,7 +48,7 @@ export async function initiatePayment(order: OrderRecord) {
     store_id: process.env.SSLCOMMERZ_STORE_ID!,
     store_passwd: process.env.SSLCOMMERZ_STORE_PASSWORD!,
     total_amount: fresh.total.toFixed(2),
-    currency: "BDT",
+    currency: order.currency || "BDT",
     tran_id: fresh.transactionId!,
     success_url: `${api}/api/payments/return`,
     fail_url: `${api}/api/payments/return`,
@@ -47,13 +57,13 @@ export async function initiatePayment(order: OrderRecord) {
     cus_name: fresh.customer.name,
     cus_email: fresh.email!,
     cus_add1: fresh.customer.address,
-    cus_city: "Dhaka",
+    cus_city: profile.city,
     cus_state: fresh.customer.area,
-    cus_postcode: "1200",
+    cus_postcode: profile.postalCode,
     cus_country: "Bangladesh",
     cus_phone: fresh.customer.phone,
     shipping_method: "NO",
-    product_name: "FreshCart groceries",
+    product_name: `${profile.name} groceries`,
     product_category: "groceries",
     product_profile: "physical-goods",
     num_of_item: String(fresh.items.length),
@@ -112,6 +122,7 @@ export async function verifyPayment(valId: string) {
     const order = reference ? await findOrder(reference) : null;
     if (
       !order ||
+      (order.currency && order.currency !== "BDT") ||
       order.transactionId !== result.tran_id ||
       Math.abs(Number(result.amount) - order.total) > 0.001 ||
       !Number.isFinite(Number(result.amount))

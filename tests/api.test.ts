@@ -15,12 +15,17 @@ import { defaultSettings } from "../src/lib/storefront";
 test("FreshCart API: accounts, permissions, stock, checkout and reviews", async (t) => {
   const directory = await mkdtemp(join(tmpdir(), "freshcart-api-"));
   process.env.FRESHCART_DATA_DIR = directory;
+  // Bulk fixture; dedicated checkout safeguards test the default limits.
+  process.env.MAX_OUTSTANDING_COD = "100";
+  process.env.CHECKOUT_RATE_MAX = "1000";
   const server = app.listen(0, "127.0.0.1");
   await once(server, "listening");
   t.after(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await rm(directory, { recursive: true, force: true });
     delete process.env.FRESHCART_DATA_DIR;
+    delete process.env.MAX_OUTSTANDING_COD;
+    delete process.env.CHECKOUT_RATE_MAX;
   });
   const address = server.address();
   assert.ok(address && typeof address !== "string");

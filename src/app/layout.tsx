@@ -1,4 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
+const dmSans = localFont({
+  src: "../../public/fonts/dmsans.ttf",
+  variable: "--font-latin",
+  weight: "100 1000",
+  display: "swap",
+});
+const bengali = localFont({
+  src: "../../public/fonts/notosansbengali.ttf",
+  variable: "--font-bengali",
+  weight: "100 900",
+  display: "swap",
+  preload: false,
+});
+import { PwaInstall } from "@/components/pwa-install";
 import { cookies } from "next/headers";
 import { LANGUAGE_COOKIE, normalizeLocale } from "@/lib/i18n";
 import {
@@ -18,15 +33,29 @@ import "./enhancements.css";
 import "./shopping.css";
 import "./management.css";
 import "./language.css";
-export const metadata: Metadata = {
-  referrer: "no-referrer",
-  title: {
-    default: "FreshCart — Good food. Brighter days.",
-    template: "%s | FreshCart",
-  },
-  description:
-    "Fresh groceries and everyday essentials, delivered with care in Dhaka. Shop fresh fruit, vegetables, dairy, bakery and pantry favourites.",
-};
+import "./operations.css";
+import "./buyer-polish.css";
+export const viewport: Viewport = { themeColor: "#174d2a" };
+export async function generateMetadata(): Promise<Metadata> {
+  const {
+    settings: { profile },
+  } = await loadStorefront();
+  return {
+    applicationName: profile.name,
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: profile.name,
+    },
+    icons: { apple: "/icons/freshcart-180.png" },
+    referrer: "no-referrer",
+    title: {
+      default: `${profile.name} — ${profile.tagline}`,
+      template: `%s | ${profile.name}`,
+    },
+    description: `${profile.tagline} Shop groceries in ${profile.city}.`,
+  };
+}
 export default async function RootLayout({
   children,
 }: {
@@ -38,7 +67,11 @@ export default async function RootLayout({
   ]);
   const locale = normalizeLocale((await cookies()).get(LANGUAGE_COOKIE)?.value);
   return (
-    <html lang={locale} data-scroll-behavior="smooth">
+    <html
+      lang={locale}
+      data-scroll-behavior="smooth"
+      className={`${dmSans.variable} ${bengali.variable}`}
+    >
       <body>
         <LanguageProvider initialLocale={locale}>
           <AccountProvider>
@@ -46,11 +79,14 @@ export default async function RootLayout({
               catalog={catalog}
               initialContent={storefront.content}
               initialRecipes={storefront.recipes}
+              initialSettings={storefront.settings}
+              initialMode={storefront.mode}
             >
               <ShoppingProvider>
                 <SkipToContent />
                 <Header />
                 <main id="main-content">{children}</main>
+                <PwaInstall />
                 <Footer />
                 <MobileNavigation />
               </ShoppingProvider>

@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -24,6 +25,7 @@ import {
 } from "./ui";
 
 export function ProductListing() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const params = useSearchParams();
   const router = useRouter();
@@ -249,9 +251,15 @@ export function ProductListing() {
                   onChange={(e) => update({ maxPrice: e.target.value || null })}
                 >
                   <option value="">{t("Any price")}</option>
-                  <option value="50">{t("Under ৳50")}</option>
-                  <option value="100">{t("Under ৳100")}</option>
-                  <option value="200">{t("Under ৳200")}</option>
+                  <option value="50">
+                    {t("Under")} {money(50)}
+                  </option>
+                  <option value="100">
+                    {t("Under")} {money(100)}
+                  </option>
+                  <option value="200">
+                    {t("Under")} {money(200)}
+                  </option>
                 </select>
               </label>
               <label>
@@ -319,8 +327,8 @@ export function ProductListing() {
               )}
               {maxPrice && (
                 <button onClick={() => update({ maxPrice: null })}>
-                  {t("Under ৳")}
-                  {maxPrice}
+                  {t("Under")}
+                  {money(Number(maxPrice))}
                   <X size={12} />
                 </button>
               )}

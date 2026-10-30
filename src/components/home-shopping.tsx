@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -15,7 +16,7 @@ import { useAccount } from "./account-provider";
 import { useShopping } from "./shopping-provider";
 import { useShop } from "./shop-provider";
 import { AddSelection } from "./basket-selection";
-import { money } from "@/lib/commerce";
+
 import { formatDelivery } from "@/lib/orders";
 import { ProductImage } from "./ui";
 
@@ -74,6 +75,7 @@ export function ActiveOrderBanner() {
   );
 }
 export function HomeShoppingHub() {
+  const { money } = useStoreFormat();
   const { t, locale } = useLanguage();
   const { user } = useAccount(),
     { regular, lists, loading, error, refresh } = useShopping(),

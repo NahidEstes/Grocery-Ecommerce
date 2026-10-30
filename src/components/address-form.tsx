@@ -9,6 +9,8 @@ import {
   type DeliveryArea,
 } from "@/lib/orders";
 import { Modal } from "./ui";
+import { useShop } from "./shop-provider";
+import { normalizePhone } from "@/lib/store-profile";
 
 export function AddressForm({
   initial,
@@ -24,6 +26,10 @@ export function AddressForm({
   orderOnly?: boolean;
 }) {
   const { t } = useLanguage();
+  const { settings } = useShop();
+  const deliveryAreas = settings.zones
+    .filter((z) => z.enabled || z.name === initial?.area)
+    .map((z) => z.name);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -36,10 +42,10 @@ export function AddressForm({
     if (
       name.length < 2 ||
       address.length < 10 ||
-      !/^(?:\+?88)?01[3-9]\d{8}$/.test(phone)
+      !normalizePhone(phone, settings.profile)
     ) {
       setError(
-        "Please enter a full name, valid Bangladesh mobile number and complete address.",
+        "Please enter a full name, valid store-country phone number and complete address.",
       );
       return;
     }
@@ -99,10 +105,8 @@ export function AddressForm({
               type="tel"
               autoComplete="tel"
               defaultValue={initial?.phone}
-              placeholder="01XXXXXXXXX"
-              pattern="(\+?88)?01[3-9][0-9]{8}"
-              maxLength={14}
-              title={t("Enter a valid Bangladesh mobile number")}
+              placeholder={`+${settings.profile.callingCode}…`}
+              maxLength={30}
               required
             />
           </label>

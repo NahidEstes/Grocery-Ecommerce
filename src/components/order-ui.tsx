@@ -1,11 +1,12 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
 import { Check, CircleHelp, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { money } from "@/lib/commerce";
+
 import type { Order } from "@/lib/orders";
 import { Modal, ProductImage } from "./ui";
 import type { Product } from "@/lib/catalog";
@@ -38,6 +39,7 @@ export function OrderTotals({
 }: {
   order: Pick<Order, "subtotal" | "delivery" | "discount" | "total">;
 }) {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   return (
     <dl className="totals-list checkout-totals">
@@ -136,59 +138,36 @@ export function PolicyLinks({ kind = "terms" }: { kind?: "terms" | "help" }) {
             onClose={() => setOpen(null)}
           >
             <div className="policy-content">
-              {open === "privacy" ? (
-                <>
-                  <p>
-                    {t(
-                      "Guest baskets, addresses and order access receipts are saved in this browser. When signed in, your profile, delivery addresses, basket and linked orders are stored with your account and available on your other devices.",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "Local demo data is saved on this computer. A configured store uses MongoDB. Card and bKash payment details are collected on the payment gateway, never by FreshCart. Sign out on shared devices.",
-                    )}
-                  </p>
-                </>
-              ) : open === "help" ? (
-                <>
-                  <p>
-                    {t(
-                      "Open an order to review its items, total, selected delivery time and current status. You can change its address while the status is “Order placed”.",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "Demo orders don’t schedule a delivery. Online payments are available only when the store configures its gateway. Sandbox payments are for testing.",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "For a missing order, sign in to the account used at checkout, or use the original browser for a guest order. Address changes are available before preparation begins; contact the store for an area change.",
-                    )}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p>
-                    {t(
-                      "Delivery charges depend on your area. Delivery is free when the product subtotal reaches",
-                    )}{" "}
-                    {money(settings.freeDeliveryAt)}
-                    {t(
-                      ". The checkout shows your exact total and any valid promo discount. Cash on delivery is available; online payment uses the configured gateway.",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "Delivery times are in Dhaka time. Slots close one hour before they start. Order totals and availability are checked again when you place an order.",
-                    )}
-                  </p>
-                  <p>
-                    {t(
-                      "Demo orders are saved for testing and do not arrange delivery. Unpaid online reservations expire after 30 minutes. Payment is marked paid only after server verification; a gateway return screen alone does not confirm payment.",
-                    )}
-                  </p>
-                </>
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {t(
+                  open === "privacy"
+                    ? settings.profile.policies.privacy
+                    : open === "help"
+                      ? settings.profile.policies.returns
+                      : settings.profile.policies.terms,
+                )}
+              </p>
+              {open !== "privacy" && (
+                <p style={{ whiteSpace: "pre-wrap" }}>
+                  {t(settings.profile.policies.reservations)}
+                </p>
+              )}
+              <p>
+                {settings.profile.name} · {settings.profile.timeZone}
+              </p>
+              {settings.profile.supportEmail && (
+                <p>
+                  <a href={`mailto:${settings.profile.supportEmail}`}>
+                    {settings.profile.supportEmail}
+                  </a>
+                </p>
+              )}
+              {settings.profile.supportPhone && (
+                <p>
+                  <a href={`tel:${settings.profile.supportPhone}`}>
+                    {settings.profile.supportPhone}
+                  </a>
+                </p>
               )}
             </div>
           </Modal>,

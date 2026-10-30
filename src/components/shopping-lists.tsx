@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -21,7 +22,7 @@ import { useShopping } from "./shopping-provider";
 import { AddSelection } from "./basket-selection";
 import { Breadcrumb, Modal, ProductImage, QuantityControl } from "./ui";
 import { api } from "@/lib/client-api";
-import { money, type CartItem } from "@/lib/commerce";
+import { type CartItem } from "@/lib/commerce";
 import {
   planBasket,
   type ShoppingList,
@@ -34,6 +35,7 @@ export function ShoppingListsPage() {
   return <ShoppingListsContent key={user?.id || "guest"} />;
 }
 function ShoppingListsContent() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { user, ready: accountReady } = useAccount();
   const { catalog, items, ready } = useShop();
@@ -377,6 +379,7 @@ function ListEditor({
   onSave: (input: ShoppingListInput) => Promise<void>;
   onClose: () => void;
 }) {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { catalog } = useShop();
   const [draft, setDraft] = useState<CartItem[]>(

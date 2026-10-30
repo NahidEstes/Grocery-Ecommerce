@@ -36,7 +36,12 @@ function canonical(token: string) {
 }
 function words(product: Product) {
   const text = normalizeSearch(
-    `${product.name} ${product.brand || ""} ${product.category} ${product.unit} ${product.description} ${(product.searchTerms || []).join(" ")}`,
+    `${product.name} ${product.brand || ""} ${product.category} ${product.unit} ${product.description} ${(product.searchTerms || []).join(" ")} ${Object.values(
+      product.translations?.bn || {},
+    )
+      .filter((v) => v.text && v.source)
+      .map((v) => v.text)
+      .join(" ")}`,
   );
   const tokens = text.split(" ");
   const canonicalTokens = tokens.map(canonical);

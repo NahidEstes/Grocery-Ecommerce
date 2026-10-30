@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import {
@@ -15,9 +16,9 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { Product } from "@/lib/catalog";
-import { money } from "@/lib/commerce";
+
 import { useShop } from "./shop-provider";
-import { unitPrice } from "@/lib/storefront";
+
 import { ProductReviews } from "./product-reviews";
 import {
   Benefits,
@@ -32,6 +33,7 @@ export function ProductDetails({
 }: {
   product: Product;
 }) {
+  const { money, unitPrice } = useStoreFormat();
   const { t, locale } = useLanguage();
   const {
     catalog,
@@ -234,7 +236,9 @@ export function ProductDetails({
                   {t("Delivery to ")}
                   {area}
                 </strong>
-                <small>{t("Dhaka · Delivered with care")}</small>
+                <small>
+                  {settings.profile.city} · {t("Delivered with care")}
+                </small>
               </span>
             </div>
             <div>

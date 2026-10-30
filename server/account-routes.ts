@@ -17,7 +17,8 @@ import {
   digest,
 } from "./auth";
 import { atomic } from "./repository";
-import { addressSchema, bad } from "./validation";
+import { addressSchema, bad, validateCustomer } from "./validation";
+import { getSettings } from "./store";
 import { getCatalog, listOrders, findOrder, replaceOrder } from "./store";
 import { tokenAccess, publicOrder } from "./checkout";
 import { sanitizeCart } from "../src/lib/commerce";
@@ -92,7 +93,7 @@ accountRoutes.post("/auth/forgot", async (req, res) => {
     await transport.sendMail({
       from: process.env.MAIL_FROM,
       to: user.email,
-      subject: "Reset your FreshCart password",
+      subject: `Reset your ${(await getSettings()).profile.name} password`,
       text: `Reset your password using this single-use link, valid for 30 minutes:\n${link}\n\nIf you did not request this, ignore this email.`,
     });
   }
@@ -137,6 +138,8 @@ accountRoutes.patch("/me", async (req, res) => {
     .parse(req.body);
   const updated = await atomic(async () => {
     const fresh = (await userByEmail(user.email))!;
+    const settings = await getSettings();
+    for (const address of input.addresses) validateCustomer(address, settings);
     const updated = { ...fresh, ...input };
     await saveUser(updated);
     return updated;
@@ -177,7 +180,13 @@ accountRoutes.post("/me/import", async (req, res) => {
   const updated = await atomic(async () => {
     const fresh = (await userByEmail(user.email))!;
     const addresses = [...fresh.addresses];
-    for (const address of input.addresses)
+    const settings = await getSettings();
+    for (const address of input.addresses) {
+      try {
+        validateCustomer(address, settings);
+      } catch {
+        continue;
+      }
       if (
         !addresses.some(
           (a) => a.address === address.address && a.area === address.area,
@@ -185,6 +194,7 @@ accountRoutes.post("/me/import", async (req, res) => {
         addresses.length < 8
       )
         addresses.push(address);
+    }
     const saved = {
       ...fresh,
       addresses,

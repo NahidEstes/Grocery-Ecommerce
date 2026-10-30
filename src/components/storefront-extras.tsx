@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -16,7 +17,7 @@ import {
   Truck,
 } from "lucide-react";
 import { useShop } from "./shop-provider";
-import { money } from "@/lib/commerce";
+
 import type { Product } from "@/lib/catalog";
 import { ProductCard, ProductImage, SectionTitle } from "./ui";
 import { deliveryDays } from "@/lib/orders";
@@ -28,13 +29,17 @@ export function DeliveryChecker({
 }: {
   title?: string;
 }) {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { settings, area, setArea, storeError } = useShop();
   const [selected, setSelected] = useState(area),
     [checked, setChecked] = useState(false);
   const zone = settings.zones.find((z) => z.name === selected);
-  const available = deliveryDays().find((d) =>
-    d.slots.some((s) => settings.slots.some((v) => v.id === s.id && v.enabled)),
+  const available = deliveryDays(new Date(), settings.profile.timeZone).find(
+    (d) =>
+      d.slots.some((s) =>
+        settings.slots.some((v) => v.id === s.id && v.enabled),
+      ),
   );
   return (
     <section className="delivery-checker">
@@ -82,7 +87,7 @@ export function DeliveryChecker({
           {storeError
             ? storeError
             : zone?.enabled
-              ? `${t("{area}: {fee} delivery, free from {threshold}.", { area: t(selected), fee: money(zone.fee), threshold: money(settings.freeDeliveryAt) })} ${available ? t("Next available: {date} (Dhaka time).", { date: `${t(available.label)}, ${available.short}` }) : t("No delivery slots currently available.")} ${t(zone.estimate)}`
+              ? `${t("{area}: {fee} delivery, free from {threshold}.", { area: t(selected), fee: money(zone.fee), threshold: money(settings.freeDeliveryAt) })} ${available ? `${t("Next available:")} ${t(available.label)}, ${available.short} (${settings.profile.timeZone}).` : t("No delivery slots currently available.")} ${t(zone.estimate)}`
               : t("We do not currently deliver to this area.")}
         </p>
       )}
@@ -134,6 +139,7 @@ function HomeExtraSection({
   section: HomeSectionId;
   title: string;
 }) {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { settings, catalog, addMany, popularIds, reviews, storeError, ready } =
     useShop();
@@ -142,6 +148,8 @@ function HomeExtraSection({
   const arrivals = available
     .filter((p) => p.createdAt)
     .sort((a, b) => b.createdAt!.localeCompare(a.createdAt!));
+  if(section==="popular"&&!popularIds.some(id=>available.some(p=>p.id===id)))return null;
+  if(section==="reviews"&&!reviews.length)return null;
   return (
     <div className="managed-extra-section">
       {section === "categories" && (

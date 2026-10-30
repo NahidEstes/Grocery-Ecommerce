@@ -1,5 +1,7 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
+import { localizeEntity } from "@/lib/content-language";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -19,7 +21,7 @@ import {
   type Recipe,
 } from "@/lib/recipes";
 import type { Product } from "@/lib/catalog";
-import { money } from "@/lib/commerce";
+
 import { useShop } from "./shop-provider";
 import { AddSelection } from "./basket-selection";
 import { Breadcrumb, ProductImage, SectionTitle } from "./ui";
@@ -134,8 +136,10 @@ export function RecipesPage() {
     </div>
   );
 }
-export function RecipeDetails({ recipe }: { recipe: Recipe }) {
-  const { t } = useLanguage();
+export function RecipeDetails({ recipe: originalRecipe }: { recipe: Recipe }) {
+  const { money } = useStoreFormat();
+  const { t, locale } = useLanguage();
+  const recipe = localizeEntity("recipe", originalRecipe, locale);
   const { catalog } = useShop();
   const [servings, setServings] = useState(recipe.servings),
     [selected, setSelected] = useState<Record<string, boolean>>(() =>

@@ -15,6 +15,7 @@ const schema = new mongoose.Schema(
   {
     key: { type: String, unique: true, required: true },
     value: mongoose.Schema.Types.Mixed,
+    expiresAt: { type: Date, index: { expireAfterSeconds: 0 } },
   },
   { timestamps: true },
 );
@@ -29,7 +30,16 @@ const context = new AsyncLocalStorage<{
 export const dataDirectory = () =>
   process.env.FRESHCART_DATA_DIR || join(process.cwd(), ".data");
 const file = () => join(dataDirectory(), "store.json");
-export const mongo = () => mongoose.connection.readyState === 1;
+export const mongo = () => {
+  if (
+    process.env.STORE_MODE === "production" &&
+    mongoose.connection.readyState !== 1
+  )
+    throw Object.assign(new Error("Production database is unavailable."), {
+      status: 503,
+    });
+  return mongoose.connection.readyState === 1;
+};
 async function snapshot(): Promise<Snapshot> {
   try {
     return JSON.parse(await readFile(file(), "utf8"));
@@ -66,7 +76,14 @@ export async function writeEntity<T>(key: string, value: T) {
   if (mongo()) {
     await Entity.updateOne(
       { key },
-      { $set: { value } },
+      {
+        $set: {
+          value,
+          ...(key.startsWith("checkout-rate:")
+            ? { expiresAt: new Date((value as { expires: number }).expires) }
+            : {}),
+        },
+      },
       { upsert: true, session: context.getStore()?.session },
     );
     return;
@@ -124,13 +141,27 @@ async function fileLock() {
 export async function atomic<T>(operation: () => Promise<T>): Promise<T> {
   if (context.getStore()) return operation();
   const run = queue.then(async () => {
-    if (mongo())
-      return mongoose.connection.transaction(async (session) =>
-        context.run({ session }, operation),
-      );
+    if (mongo()) {
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await mongoose.connection.transaction(async (session) =>
+            context.run({ session }, operation),
+          );
+        } catch (error) {
+          if (attempt >= 3 || (error as { code?: number }).code !== 11000)
+            throw error;
+        }
+      }
+    }
     const release = await fileLock();
     try {
       const data = await snapshot();
+      for (const [key, value] of Object.entries(data))
+        if (
+          key.startsWith("checkout-rate:") &&
+          Number((value as { expires?: number }).expires) < Date.now()
+        )
+          delete data[key];
       const transaction = { snapshot: data, dirty: false };
       const result = await context.run(transaction, operation);
       if (!transaction.dirty) return result;

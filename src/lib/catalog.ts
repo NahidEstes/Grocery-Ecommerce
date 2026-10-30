@@ -1,5 +1,7 @@
 import { searchScore } from "./search";
+import type { Translations } from "./content-language";
 export type Product = {
+  translations?: Translations;
   id: string;
   slug: string;
   name: string;
@@ -250,6 +252,8 @@ const measures: Record<string, [number, "kg" | "litre" | "piece"]> = {
 };
 for (const p of products) {
   p.rating = 0;
+  p.seasonal = ["orange", "apple", "broccoli"].includes(p.id);
+  p.createdAt = "2026-10-01T00:00:00.000Z";
   p.brand = "Unspecified";
   const m = measures[p.id];
   if (m) {

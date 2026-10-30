@@ -1,8 +1,11 @@
 import type { Account } from "./storefront";
 import type { Order } from "./orders";
+import type { Translations } from "./content-language";
 export const staffRoles = ["admin", "manager", "editor", "fulfilment"] as const;
 export type StaffRole = (typeof staffRoles)[number];
 export type Permission =
+  | "finance"
+  | "purchasing"
   | "reports"
   | "products"
   | "content"
@@ -14,6 +17,8 @@ export type Permission =
   | "audit";
 const grants: Record<string, Permission[]> = {
   admin: [
+    "finance",
+    "purchasing",
     "reports",
     "products",
     "content",
@@ -25,6 +30,8 @@ const grants: Record<string, Permission[]> = {
     "audit",
   ],
   manager: [
+    "finance",
+    "purchasing",
     "reports",
     "products",
     "content",
@@ -57,6 +64,7 @@ export const homeSectionIds = [
 export type HomeSectionId = (typeof homeSectionIds)[number];
 export type SearchAlias = { term: string; productIds: string[] };
 export type ContentConfig = {
+  translations?: Translations;
   version: number;
   hero: {
     eyebrow: string;
@@ -93,7 +101,7 @@ export const defaultContent: ContentConfig = {
       "Fresh produce, pantry staples, household essentials and more — all at your doorstep.",
     button: "Start shopping",
     href: "/products",
-    imageUrl: "/images/grocery-hero.png",
+    imageUrl: "/images/grocery-hero-1280.webp",
   },
   banners: [
     {
@@ -216,30 +224,37 @@ export function salesReport(
   days: number,
   mode: "live" | "demo",
   now = new Date(),
+  timeZone = "Asia/Dhaka",
 ): SalesReport {
   const dayKey = (date: Date) =>
     new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Dhaka",
+      timeZone,
       year: "numeric",
       month: "2-digit",
       day: "2-digit",
     }).format(date);
-  const today = dayKey(now),
-    end = Date.parse(`${today}T00:00:00+06:00`) + 86400000,
-    start = end - days * 86400000,
-    previousStart = start - days * 86400000;
+  const today = dayKey(now);
+  const calendar = (offset: number) =>
+    new Date(Date.parse(today + "T12:00:00Z") + offset * 86400000)
+      .toISOString()
+      .slice(0, 10);
+  const end = calendar(1),
+    start = calendar(1 - days),
+    previousStart = calendar(1 - days * 2);
   const eligible = orders.filter((o) =>
     mode === "live"
       ? o.mode === "mongodb" && !o.sandbox
       : o.mode === "demo" || o.sandbox,
   );
   const current = eligible.filter(
-      (o) => Date.parse(o.createdAt) >= start && Date.parse(o.createdAt) < end,
+      (o) =>
+        dayKey(new Date(o.createdAt)) >= start &&
+        dayKey(new Date(o.createdAt)) < end,
     ),
     previous = eligible.filter(
       (o) =>
-        Date.parse(o.createdAt) >= previousStart &&
-        Date.parse(o.createdAt) < start,
+        dayKey(new Date(o.createdAt)) >= previousStart &&
+        dayKey(new Date(o.createdAt)) < start,
     );
   const paid = (o: Order) =>
     o.status === "delivered" &&
@@ -255,7 +270,7 @@ export function salesReport(
       100,
   });
   const daily = Array.from({ length: days }, (_, i) => ({
-    date: dayKey(new Date(start + i * 86400000)),
+    date: calendar(1 - days + i),
     revenue: 0,
     orders: 0,
   }));

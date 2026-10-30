@@ -15,6 +15,7 @@ import {
   listOrders,
 } from "../server/store";
 import { deliveryDays } from "../src/lib/orders";
+import { spawn } from "node:child_process";
 test(
   "MongoDB replica set: account persistence, stock transactions and idempotency",
   { skip: !process.env.MONGODB_TEST_URI },
@@ -87,5 +88,35 @@ test(
     await changeStatus(reference, "cancelled");
     assert.equal((await getCatalog()).find((p) => p.id === "banana")!.stock, 1);
     assert.equal((await findOrder(reference))!.status, "cancelled");
+    await mongoose.disconnect();
+    await mongoose.connect(process.env.MONGODB_TEST_URI!, { dbName });
+    assert.equal((await findOrder(reference))!.status, "cancelled");
+    assert.equal((await userByEmail(user.email))!.name, "Saved account");
+    const worker = (payload: ReturnType<typeof input>) =>
+      new Promise<{ created?: boolean; error?: string }>((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          ["--import", "tsx", "tests/mongo-worker.ts", JSON.stringify(payload)],
+          {
+            env: { ...process.env, MONGO_WORKER_DB: dbName },
+            windowsHide: true,
+          },
+        );
+        let output = "";
+        child.stdout.on("data", (d) => (output += d));
+        child.on("error", reject);
+        child.on("exit", (code) => {
+          try {
+            if (code) throw new Error("Mongo integration worker failed");
+            resolve(JSON.parse(output.trim()));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      });
+    const workers = await Promise.all([worker(input()), worker(input())]);
+    assert.equal(workers.filter((r) => r.created).length, 1);
+    assert.equal(workers.filter((r) => r.error).length, 1);
+    assert.equal((await getCatalog()).find((p) => p.id === "banana")!.stock, 0);
   },
 );

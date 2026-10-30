@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useEffect, useState } from "react";
 import {
   ArrowRight,
@@ -10,8 +11,8 @@ import {
   Upload,
 } from "lucide-react";
 import { api } from "@/lib/client-api";
-import { money } from "@/lib/commerce";
-import { orderTime, type Order } from "@/lib/orders";
+
+import { type Order } from "@/lib/orders";
 import type { Product } from "@/lib/catalog";
 import type { Account, SupportTicket, Review } from "@/lib/storefront";
 import {
@@ -28,6 +29,7 @@ import { exportProducts, importProducts } from "@/lib/product-csv";
 import { Notice, useUnsaved } from "./admin-shared";
 import { Modal } from "./ui";
 export function ReportsPanel() {
+  const { money } = useStoreFormat();
   const [days, setDays] = useState(7),
     [mode, setMode] = useState("live"),
     [report, setReport] = useState<SalesReport>(),
@@ -56,8 +58,8 @@ export function ReportsPanel() {
           <span className="eyebrow">A CLEARER PICTURE</span>
           <h2>Sales & promo performance</h2>
           <p>
-            Order dates use Dhaka time. Sales include delivered COD and verified
-            online payments, before refunds.
+            Order dates use the configured store time zone. Sales include
+            delivered COD and verified online payments, before refunds.
           </p>
         </div>
         <div className="inline-actions">
@@ -205,6 +207,7 @@ export function ReportsPanel() {
   );
 }
 export function InventoryPanel({ products }: { products: Product[] }) {
+  const { orderTime } = useStoreFormat();
   const [data, setData] = useState<{
       threshold: number;
       alerts: Product[];
@@ -309,6 +312,7 @@ export function InventoryPanel({ products }: { products: Product[] }) {
   );
 }
 export function ActivityPanel() {
+  const { orderTime } = useStoreFormat();
   const [events, setEvents] = useState<AuditEvent[]>([]),
     [query, setQuery] = useState(""),
     [error, setError] = useState("");
@@ -506,6 +510,7 @@ export function SearchSettings({
   products: Product[];
   onSave: (c: ContentConfig) => Promise<ContentConfig>;
 }) {
+  const { orderTime } = useStoreFormat();
   const [draft, setDraft] = useState(structuredClone(initial)),
     [misses, setMisses] = useState<
       { query: string; count: number; lastAt: string }[]
@@ -701,6 +706,7 @@ export function CatalogTools({
   products: Product[];
   reload: () => Promise<void>;
 }) {
+  const { money } = useStoreFormat();
   const [selected, setSelected] = useState<string[]>([]),
     [query, setQuery] = useState(""),
     [price, setPrice] = useState(""),
@@ -964,8 +970,15 @@ export function CatalogTools({
   );
 }
 export function OrderOperationsPanel({ reference }: { reference: string }) {
+  const { orderTime } = useStoreFormat();
   const [data, setData] = useState<{
       operations: OrderOperations;
+      picking?: {
+        productId: string;
+        batchNumber: string;
+        expiresOn: string | null;
+        quantity: number;
+      }[];
       events: AuditEvent[];
     }>(),
     [note, setNote] = useState(""),
@@ -985,7 +998,24 @@ export function OrderOperationsPanel({ reference }: { reference: string }) {
           void load().catch((e) => setError(e.message));
       }}
     >
-      <summary>Notes, history & printing</summary>
+      <summary>Batch picking, notes, history & printing</summary>
+      {!!data?.picking?.length && (
+        <section className="surface-card">
+          <h3>Reserved batches for picking</h3>
+          <p>
+            Check the physical batch number and labelled expiry before packing.
+            Quantities below are reserved product packs.
+          </p>
+          <ul>
+            {data.picking.map((p, i) => (
+              <li key={`${p.productId}-${p.batchNumber}-${i}`}>
+                {p.quantity} × {p.productId} · Batch {p.batchNumber} ·{" "}
+                {p.expiresOn || "No labelled expiry"}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <div className="inline-actions">
         <a
           className="button outline small"
@@ -1252,6 +1282,7 @@ function ReturnCard({
   products: Product[];
   onSave: (data: Record<string, unknown>) => Promise<void>;
 }) {
+  const { orderTime, money } = useStoreFormat();
   const [status, setStatus] = useState(
       returnTransitions[item.status]?.[0] || "",
     ),

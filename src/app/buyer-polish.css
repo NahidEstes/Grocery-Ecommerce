@@ -1,0 +1,97 @@
+.hero {
+  --hero-default: image-set(
+    url("/images/grocery-hero-1280.webp") 1x,
+    url("/images/grocery-hero-1920.webp") 2x
+  );
+}
+.product-image {
+  background-image: image-set(
+    url("/images/product-atlas-800.webp") 1x,
+    url("/images/product-atlas-1600.webp") 2x
+  );
+}
+.hero {
+  background-image:
+    linear-gradient(
+      90deg,
+      #fff0b8 0%,
+      #fff0b8f5 23%,
+      #fff0b8cc 42%,
+      #fff0b800 68%
+    ),
+    var(--hero-image, var(--hero-default));
+}
+.demo-store-note {
+  padding: 10px 16px;
+  border: 1px solid #dfe9d9;
+  border-radius: 10px;
+  background: #f4faef;
+  color: #255b2b;
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+.brand-symbol img {
+  object-fit: contain;
+}
+@media (max-width: 700px) {
+  .hero {
+    --hero-default: image-set(
+      url("/images/grocery-hero-640.webp") 1x,
+      url("/images/grocery-hero-1280.webp") 2x
+    );
+  }
+  .product-card small,
+  .product-unit,
+  .unit-comparison,
+  .hero-benefits,
+  .checkout-section small,
+  .delivery-time-note {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .order-timeline > li > strong {
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: normal;
+  }
+  .order-detail-labels,
+  .order-detail-row > div strong,
+  .order-detail-row > div small,
+  .order-detail-row > span,
+  .order-info-heading p,
+  .order-info-content strong,
+  .order-info-content small,
+  .history-card-heading small,
+  .history-total > small,
+  .orders-heading p,
+  .checkout-demo-note,
+  .checkout-reassurance small {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .change-address,
+  .order-help {
+    font-size: 13px;
+    min-height: 36px;
+  }
+  .language-switcher select,
+  .quantity-control button,
+  .address-actions button {
+    min-height: 36px;
+    min-width: 32px;
+  }
+  .settings-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .settings-row > label {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .management-stack form input,
+  .management-stack form select,
+  .management-stack form textarea {
+    max-width: 100%;
+  }
+}

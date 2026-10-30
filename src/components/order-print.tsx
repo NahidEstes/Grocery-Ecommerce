@@ -1,12 +1,16 @@
 "use client";
+import { useShop } from "./shop-provider";
+import { useStoreFormat } from "./store-format";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccount } from "./account-provider";
 import { can } from "@/lib/management";
 import { api } from "@/lib/client-api";
-import { money } from "@/lib/commerce";
-import { formatDelivery, orderTime, type Order } from "@/lib/orders";
+
+import { formatDelivery, type Order } from "@/lib/orders";
 export function OrderPrint({ reference }: { reference: string }) {
+  const { settings } = useShop();
+  const { orderTime, money } = useStoreFormat();
   const { user, ready } = useAccount(),
     params = useSearchParams(),
     packing = params.get("kind") === "packing";
@@ -46,7 +50,7 @@ export function OrderPrint({ reference }: { reference: string }) {
         <article className="surface-card">
           <div className="card-title">
             <div>
-              <h1>FreshCart</h1>
+              <h1>{settings.profile.name}</h1>
               <h2>{packing ? "Packing list" : "Order invoice"}</h2>
             </div>
             <div>

@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 import { localeTag } from "@/lib/i18n";
 
@@ -19,7 +20,7 @@ import {
   ShoppingBag,
   Trash2,
 } from "lucide-react";
-import { cartTotals, money } from "@/lib/commerce";
+import { cartTotals } from "@/lib/commerce";
 import {
   deliveryDays,
   deliverySlots,
@@ -36,6 +37,14 @@ import { useShop } from "./shop-provider";
 import { useAccount } from "./account-provider";
 import { api } from "@/lib/client-api";
 import type { Account } from "@/lib/storefront";
+import type { Order } from "@/lib/orders";
+import {
+  readCheckoutAttempt,
+  saveCheckoutAttempt,
+  forgetCheckoutAttempt,
+  prepareCheckoutAttempt,
+  type CheckoutAttempt,
+} from "@/lib/checkout-attempt";
 import { AddressForm } from "./address-form";
 import { Breadcrumb, ProductImage } from "./ui";
 import {
@@ -46,6 +55,7 @@ import {
 } from "./order-ui";
 
 export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
+  const { money } = useStoreFormat();
   const { t, locale } = useLanguage();
   const {
     items,
@@ -54,7 +64,6 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
     area,
     setArea,
     setQuantity,
-    clearCart,
     notify,
     promoCode,
     setPromoCode,
@@ -67,7 +76,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
     "cash-on-delivery",
   );
   const availableDays = () =>
-    deliveryDays().map((day) => ({
+    deliveryDays(new Date(), settings.profile.timeZone).map((day) => ({
       ...day,
       slots: day.slots.filter((s) =>
         settings.slots.some((v) => v.enabled && v.id === s.id),
@@ -92,11 +101,88 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
     if (ready && !submitted && initialPromo && initialPromo !== promoCode)
       setPromoCode(initialPromo);
   }, [ready, submitted, initialPromo, promoCode, setPromoCode]);
-  const request = useRef<{
-    payload: string;
-    requestId: string;
-    accessToken: string;
-  } | null>(null);
+  const request = useRef<CheckoutAttempt | null>(null);
+  const owner = user?.id || "guest",
+    ownerRef = useRef(owner),
+    cartRef = useRef(items),
+    recoveredFor = useRef("");
+  ownerRef.current = owner;
+  cartRef.current = items;
+  const [recovering, setRecovering] = useState(true);
+  type Confirmation = {
+    reference: string;
+    total: number;
+    createdAt: string;
+    paymentUrl?: string;
+    paymentError?: string;
+    order?: Order;
+  };
+  function finish(result: Confirmation, attempt: CheckoutAttempt) {
+    if (ownerRef.current !== attempt.owner) return;
+    rememberOrder({
+      reference: result.reference,
+      accessToken: attempt.accessToken,
+      total: result.total,
+      createdAt: result.createdAt,
+    });
+    // Preserve groceries added while the response was in flight.
+    const purchased =
+      result.order?.items ||
+      (JSON.parse(attempt.payload).items as {
+        productId: string;
+        quantity: number;
+      }[]);
+    for (const item of cartRef.current) {
+      const quantity = purchased
+        .filter((p) => p.productId === item.productId)
+        .reduce((n, p) => n + p.quantity, 0);
+      if (quantity)
+        setQuantity(item.productId, Math.max(0, item.quantity - quantity));
+    }
+    forgetCheckoutAttempt(attempt.owner);
+    request.current = null;
+    setSubmitted(true);
+    try {
+      sessionStorage.removeItem("freshcart-checkout");
+    } catch {}
+    if (result.paymentUrl) {
+      window.location.assign(result.paymentUrl);
+      return;
+    }
+    if (result.paymentError) notify(result.paymentError);
+    router.push(`/orders/${result.reference}`);
+  }
+  async function recover(attempt: CheckoutAttempt) {
+    try {
+      const result = await api<Confirmation>(
+        `/checkout-attempt/${attempt.requestId}`,
+        { headers: { Authorization: `Bearer ${attempt.accessToken}` } },
+      );
+      finish(result, attempt);
+      return true;
+    } catch (e) {
+      if ((e as { status?: number }).status === 404) return false;
+      throw e;
+    }
+  }
+  useEffect(() => {
+    if (!ready || !accountReady || recoveredFor.current === owner) return;
+    recoveredFor.current = owner;
+    const attempt = readCheckoutAttempt(owner);
+    request.current = attempt;
+    if (!attempt) {
+      setRecovering(false);
+      return;
+    }
+    setRecovering(true);
+    void recover(attempt)
+      .catch(() =>
+        setError(
+          "An earlier checkout could not be checked. Keep this browser open and retry; your attempt is saved.",
+        ),
+      )
+      .finally(() => setRecovering(false));
+  }, [ready, accountReady, owner]);
   const address = addresses.find((a) => a.id === selectedId);
   const totals = cartTotals(
     items,
@@ -138,7 +224,9 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
         if (!response.ok) throw new Error();
         return response.json();
       })
-      .then((data) => setMode(data.storage === "mongodb" ? "mongodb" : "demo"))
+      .then((data) =>
+        setMode(data.mode === "production" ? "production" : "demo"),
+      )
       .catch(() => {});
   }, []);
   useEffect(() => {
@@ -232,7 +320,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
     }
     if (
       !delivery ||
-      !isValidDelivery(delivery) ||
+      !isValidDelivery(delivery, new Date(), settings.profile.timeZone) ||
       !settings.slots.some((s) => s.enabled && s.id === delivery.slot)
     ) {
       setDays(availableDays());
@@ -264,15 +352,19 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
       expectedTotal: totals.total,
       acceptedTerms: true,
     });
-    if (!request.current || request.current.payload !== payload)
-      request.current = {
-        payload,
-        requestId: crypto.randomUUID(),
-        accessToken: crypto.randomUUID(),
-      };
-    const credentials = request.current;
     setLoading(true);
     try {
+      const previous = request.current || readCheckoutAttempt(owner);
+      if (previous && (await recover(previous))) return;
+      const credentials = prepareCheckoutAttempt(owner, payload, previous);
+      try {
+        saveCheckoutAttempt(credentials);
+      } catch {
+        throw new Error(
+          "Allow browser storage before placing an order so an interrupted checkout can be recovered.",
+        );
+      }
+      request.current = credentials;
       const response = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -288,34 +380,13 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
         );
       });
       if (!response.ok) {
+        if (response.status === 409 && (await recover(credentials))) return;
         if (response.status === 409) await refreshCatalog().catch(() => {});
         throw new Error(
           result.message || "We couldn’t save your order. Please try again.",
         );
       }
-      rememberOrder({
-        reference: result.reference,
-        accessToken: result.accessToken,
-        total: result.total,
-        createdAt: result.createdAt,
-      });
-      try {
-        sessionStorage.removeItem("freshcart-checkout");
-      } catch {
-        /* Optional draft storage. */
-      }
-      setSubmitted(true);
-      clearCart();
-      if (user)
-        await api("/me/cart", { method: "PUT", body: '{"items":[]}' }).catch(
-          () => {},
-        );
-      if (result.paymentUrl) {
-        window.location.assign(result.paymentUrl);
-        return;
-      }
-      if (result.paymentError) notify(result.paymentError);
-      router.push(`/orders/${result.reference}`);
+      finish(result, credentials);
     } catch (error) {
       setError(
         error instanceof Error
@@ -326,7 +397,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
       setLoading(false);
     }
   }
-  if (!ready || !accountReady || !days.length)
+  if (!ready || !accountReady || !days.length || recovering)
     return (
       <div className="page-container loading-state">
         {t("Getting your checkout ready…")}
@@ -338,6 +409,7 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
         <ShoppingBag size={52} />
         <h1>{t("Your basket is empty.")}</h1>
         <p>{t("Add a few fresh favourites to continue to checkout.")}</p>
+        {error && <p role="alert">{t(error)}</p>}
         <Link className="button primary" href="/products">
           {t("Start shopping")}
           <ArrowRight size={17} />
@@ -388,7 +460,8 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
                       <strong>{t(value.label)}</strong>
                       <span>
                         {value.address}, {value.area}
-                        {t(", Dhaka")}
+                        {", "}
+                        {settings.profile.city}
                       </span>
                       <small>
                         {value.name} · {value.phone}
@@ -494,9 +567,8 @@ export function CheckoutPage({ promo: initialPromo }: { promo: string }) {
               })}
             </div>
             <p className="delivery-time-note">
-              {t(
-                "All times are in Dhaka (GMT+6). Slots close one hour before they start.",
-              )}
+              {settings.profile.timeZone} ·{" "}
+              {t("Slots close one hour before they start.")}
             </p>
           </section>
           <section className="checkout-section">

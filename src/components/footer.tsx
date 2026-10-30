@@ -4,7 +4,11 @@ import { useLanguage } from "./language-provider";
 import Link from "next/link";
 import { ArrowUpRight, Leaf } from "lucide-react";
 import { Brand } from "./header";
+import { useShop } from "./shop-provider";
 export function Footer() {
+  const {
+    settings: { profile },
+  } = useShop();
   const { t } = useLanguage();
   return (
     <footer className="footer">
@@ -37,7 +41,8 @@ export function Footer() {
         </span>
         <small>
           © {new Date().getFullYear()}
-          {t(" FreshCart. Made for your everyday.")}
+          {` ${profile.name}. `}
+          {t("Made for your everyday.")}
         </small>
       </div>
     </footer>

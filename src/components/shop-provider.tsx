@@ -1,5 +1,6 @@
 "use client";
 import { useLanguage } from "./language-provider";
+import { localizeProduct, localizeEntity } from "@/lib/content-language";
 import {
   createContext,
   useContext,
@@ -23,6 +24,7 @@ import { defaultContent, type ContentConfig } from "@/lib/management";
 import { type Recipe } from "@/lib/recipes";
 
 type ShopState = {
+  mode: "demo" | "production";
   content: ContentConfig;
   recipes: Recipe[];
   miniCartOpen: boolean;
@@ -58,14 +60,18 @@ export function ShopProvider({
   catalog: initialCatalog,
   initialContent = defaultContent,
   initialRecipes = [],
+  initialSettings = defaultSettings,
+  initialMode = "demo",
   children,
 }: {
   catalog: Product[];
   initialContent?: ContentConfig;
   initialRecipes?: Recipe[];
+  initialSettings?: StoreSettings;
+  initialMode?: "demo" | "production";
   children: ReactNode;
 }) {
-  const { t } = useLanguage();
+  const { t, locale } = useLanguage();
   const [catalog, setCatalog] = useState(initialCatalog);
   const [content, setContent] = useState(initialContent),
     [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
@@ -88,7 +94,7 @@ export function ShopProvider({
   }, [path]);
   const [ready, setReady] = useState(false);
   const { user, ready: accountReady } = useAccount();
-  const [settings, setSettings] = useState(defaultSettings);
+  const [settings, setSettings] = useState(initialSettings);
   const [payments, setPayments] = useState({ enabled: false, sandbox: true });
   const [popularIds, setPopularIds] = useState<string[]>([]);
   const [reviews, setReviews] = useState<
@@ -168,7 +174,9 @@ export function ShopProvider({
     };
   }, [items, user?.id]);
   const [saved, setSaved] = useState<string[]>([]);
-  const [area, updateArea] = useState("Dhanmondi");
+  const [area, updateArea] = useState(
+    initialSettings.zones.find((z) => z.enabled)?.name || "",
+  );
   const [toast, setToast] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const canShop = ready && accountReady && (!user || cartLoadedFor === user.id);
@@ -205,7 +213,7 @@ export function ShopProvider({
         setPromoCode(storedPromo);
       if (
         storedArea &&
-        ["Dhanmondi", "Mirpur", "Uttara", "Gulshan"].includes(storedArea)
+        initialSettings.zones.some((z) => z.enabled && z.name === storedArea)
       )
         updateArea(storedArea);
     } catch {
@@ -315,8 +323,9 @@ export function ShopProvider({
   return (
     <ShopContext.Provider
       value={{
-        content,
-        recipes,
+        mode: initialMode,
+        content: localizeEntity("homepage", content, locale),
+        recipes: recipes.map((r) => localizeEntity("recipe", r, locale)),
         miniCartOpen,
         setMiniCartOpen,
         settings,
@@ -326,7 +335,7 @@ export function ShopProvider({
         storeError,
         addMany,
         refreshCatalog,
-        catalog,
+        catalog: catalog.map((p) => localizeProduct(p, locale)),
         items: sanitizeCart(items, catalog),
         ready: canShop,
         saved,
@@ -372,7 +381,7 @@ export function useShop() {
         ...value,
         items: [],
         saved: [],
-        area: "Dhanmondi",
+        area: value.settings.zones.find((z) => z.enabled)?.name || "",
         promoCode: "",
         ready: false,
       };

@@ -1,4 +1,5 @@
 "use client";
+import { useStoreFormat } from "./store-format";
 import { useLanguage } from "./language-provider";
 
 import Link from "next/link";
@@ -27,9 +28,8 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { categories, type Product } from "@/lib/catalog";
-import { money } from "@/lib/commerce";
+
 import { useShop } from "./shop-provider";
-import { unitPrice } from "@/lib/storefront";
 
 const icons: Record<string, typeof Leaf> = {
   leaf: Leaf,
@@ -166,6 +166,7 @@ export function QuantityControl({
   );
 }
 export function ProductCard({ product }: { product: Product }) {
+  const { unitPrice, money } = useStoreFormat();
   const { t, locale } = useLanguage();
   const { items, addItem, setQuantity, saved, toggleSaved, ready } = useShop();
   const quantity =
@@ -241,6 +242,7 @@ export function ProductCard({ product }: { product: Product }) {
   );
 }
 export function Benefits() {
+  const { money } = useStoreFormat();
   const { t } = useLanguage();
   const { settings } = useShop();
   return (
