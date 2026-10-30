@@ -1,5 +1,7 @@
 import type { MetadataRoute } from "next";
 import { loadStorefront } from "@/lib/api";
+// Store identity comes from the live API in normal mode, not from build-time data.
+export const dynamic = "force-dynamic";
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const {
     settings: { profile },

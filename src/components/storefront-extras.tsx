@@ -23,6 +23,8 @@ import { ProductCard, ProductImage, SectionTitle } from "./ui";
 import { deliveryDays } from "@/lib/orders";
 import { RecipeShelf } from "./recipes";
 import type { HomeSectionId } from "@/lib/management";
+import { BROWSER_DEMO } from "@/lib/browser-demo/config";
+import { demoSettingsFor } from "@/lib/browser-demo/data";
 
 export function DeliveryChecker({
   title = "Do we deliver to your door?",
@@ -35,11 +37,14 @@ export function DeliveryChecker({
   const [selected, setSelected] = useState(area),
     [checked, setChecked] = useState(false);
   const zone = settings.zones.find((z) => z.name === selected);
-  const available = deliveryDays(new Date(), settings.profile.timeZone).find(
-    (d) =>
-      d.slots.some((s) =>
-        settings.slots.some((v) => v.id === s.id && v.enabled),
-      ),
+  const deliverySettings = BROWSER_DEMO ? demoSettingsFor(selected) : settings;
+  const available = deliveryDays(
+    new Date(),
+    deliverySettings.profile.timeZone,
+  ).find((d) =>
+    d.slots.some((s) =>
+      deliverySettings.slots.some((v) => v.id === s.id && v.enabled),
+    ),
   );
   return (
     <section className="delivery-checker">
@@ -87,7 +92,7 @@ export function DeliveryChecker({
           {storeError
             ? storeError
             : zone?.enabled
-              ? `${t("{area}: {fee} delivery, free from {threshold}.", { area: t(selected), fee: money(zone.fee), threshold: money(settings.freeDeliveryAt) })} ${available ? `${t("Next available:")} ${t(available.label)}, ${available.short} (${settings.profile.timeZone}).` : t("No delivery slots currently available.")} ${t(zone.estimate)}`
+              ? `${t("{area}: {fee} delivery, free from {threshold}.", { area: t(selected), fee: money(zone.fee), threshold: money(settings.freeDeliveryAt) })} ${available ? `${t("Next available:")} ${t(available.label)}, ${available.short} (${deliverySettings.profile.timeZone}).` : t("No delivery slots currently available.")} ${t(zone.estimate)}`
               : t("We do not currently deliver to this area.")}
         </p>
       )}
@@ -148,8 +153,12 @@ function HomeExtraSection({
   const arrivals = available
     .filter((p) => p.createdAt)
     .sort((a, b) => b.createdAt!.localeCompare(a.createdAt!));
-  if(section==="popular"&&!popularIds.some(id=>available.some(p=>p.id===id)))return null;
-  if(section==="reviews"&&!reviews.length)return null;
+  if (
+    section === "popular" &&
+    !popularIds.some((id) => available.some((p) => p.id === id))
+  )
+    return null;
+  if (section === "reviews" && !reviews.length) return null;
   return (
     <div className="managed-extra-section">
       {section === "categories" && (

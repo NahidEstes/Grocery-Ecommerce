@@ -4,6 +4,10 @@ import { useShop } from "./shop-provider";
 import { Download, RefreshCw, Smartphone, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "./language-provider";
+import { BROWSER_DEMO, demoKey } from "@/lib/browser-demo/config";
+const dismissKey = BROWSER_DEMO
+  ? demoKey("install-dismissed")
+  : "freshcart-install-dismissed";
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
@@ -43,9 +47,7 @@ export function PwaInstall() {
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
     );
     try {
-      setDismissed(
-        localStorage.getItem("freshcart-install-dismissed") === "yes",
-      );
+      setDismissed(localStorage.getItem(dismissKey) === "yes");
     } catch {}
     window.addEventListener("beforeinstallprompt", offer);
     window.addEventListener("appinstalled", installed);
@@ -168,7 +170,7 @@ export function PwaInstall() {
             onClick={() => {
               setDismissed(true);
               try {
-                localStorage.setItem("freshcart-install-dismissed", "yes");
+                localStorage.setItem(dismissKey, "yes");
               } catch {}
             }}
           >

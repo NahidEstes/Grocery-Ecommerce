@@ -6,7 +6,7 @@ New-Item -ItemType Directory -Path $releaseOutput -Force | Out-Null
 $releaseStage = Join-Path $releaseOutput ('stage-' + [guid]::NewGuid().ToString('N'))
 $releaseFolder = Join-Path $releaseStage 'grocery-ecommerce-starter'
 New-Item -ItemType Directory -Path $releaseFolder | Out-Null
-$releaseAllowed = @('src','server','public','tests','scripts','docs','deploy','AGENTS.md','README.md','package.json','package-lock.json','tsconfig.json','next.config.ts','next-env.d.ts','.env.example','.gitignore','.dockerignore','Dockerfile','COMMERCIAL-LICENSE-DRAFT.md','CHANGELOG.md')
+$releaseAllowed = @('src','server','public','tests','scripts','docs','deploy','AGENTS.md','README.md','DEMO-VERCEL.md','package.json','package-lock.json','tsconfig.json','next.config.ts','next-env.d.ts','.env.example','.gitignore','.dockerignore','Dockerfile','COMMERCIAL-LICENSE-DRAFT.md','CHANGELOG.md')
 foreach ($releaseEntry in $releaseAllowed) {
   $releaseSource = Join-Path $releaseRoot $releaseEntry
   if (!(Test-Path -LiteralPath $releaseSource)) { throw "Missing release source: $releaseEntry" }

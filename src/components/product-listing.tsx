@@ -16,6 +16,7 @@ import { useEffect, useRef, useTransition, useState } from "react";
 import { categories, filterProducts } from "@/lib/catalog";
 import { useShop } from "./shop-provider";
 import { api } from "@/lib/client-api";
+import { BROWSER_DEMO } from "@/lib/browser-demo/config";
 import {
   Benefits,
   Breadcrumb,
@@ -65,6 +66,7 @@ export function ProductListing() {
     pack,
   });
   useEffect(() => {
+    if (BROWSER_DEMO) return;
     if (query.trim().length < 2 || result.total || !catalog.length) return;
     const timer = setTimeout(() => {
       void api("/search-misses", {
@@ -251,14 +253,14 @@ export function ProductListing() {
                   onChange={(e) => update({ maxPrice: e.target.value || null })}
                 >
                   <option value="">{t("Any price")}</option>
-                  <option value="50">
-                    {t("Under")} {money(50)}
+                  <option value={BROWSER_DEMO ? "3" : "50"}>
+                    {t("Under")} {money(BROWSER_DEMO ? 3 : 50)}
                   </option>
-                  <option value="100">
-                    {t("Under")} {money(100)}
+                  <option value={BROWSER_DEMO ? "5" : "100"}>
+                    {t("Under")} {money(BROWSER_DEMO ? 5 : 100)}
                   </option>
-                  <option value="200">
-                    {t("Under")} {money(200)}
+                  <option value={BROWSER_DEMO ? "10" : "200"}>
+                    {t("Under")} {money(BROWSER_DEMO ? 10 : 200)}
                   </option>
                 </select>
               </label>

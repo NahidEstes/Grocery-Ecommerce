@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "Compiled flag stays consistent for SSR/client; demo rewrites are empty",
+    "1440px: বাংলা/English search, variant, favourite, add/remove/quantity, reload, promo, city pickers, 3 cities, checkout, receipt reload, read-only admin, scoped reset",
+    "390px: বাংলা/English search, variant, favourite, add/remove/quantity, reload, promo, city pickers, 3 cities, checkout, receipt reload, read-only admin, scoped reset",
+    "Corrupt storage: shopping and receipt work without crashing; reset clears session",
+    "Blocked storage: shopping and receipt work without crashing; reset clears session",
+    "Zero client/API/localhost backend requests, console errors, hydration errors or .data writes",
+    "Active PWA worker caches only offline shell/icons; no customer/demo pages or responses",
+    "Demo deployment exposes no Express API endpoints (404)"
+  ],
+  "requests": [],
+  "errors": [],
+  "failures": [],
+  "dataUnchanged": true
+}

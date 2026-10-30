@@ -1,0 +1,14 @@
+{
+  "checks": [
+    "1440px: grouped navigation, overview tasks, orders search/filter/pagination, detail drawer, real status update/history note, unsaved draft guard, responsive layout",
+    "390px: grouped navigation, overview tasks, orders search/filter/pagination, detail drawer, real status update/history note, unsaved draft guard, responsive layout",
+    "manager: existing navigation/data/finance permission boundaries retained",
+    "editor: existing navigation/data/finance permission boundaries retained",
+    "fulfilment: existing navigation/data/finance permission boundaries retained",
+    "customer: existing navigation/data/finance permission boundaries retained"
+  ],
+  "errors": [],
+  "forbidden": [],
+  "backend": "Original Express API with temporary isolated fixture data; browser-only API proxy",
+  "userDataMutated": false
+}

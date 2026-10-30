@@ -98,10 +98,22 @@ export function ImageUploadField({
   initial = "",
   name = "imageUrl",
   label = "Image",
+  onUrlChange,
+  onBusyChange,
+  isValidUrl,
+  inputId,
+  invalid,
+  describedBy,
 }: {
   initial?: string;
   name?: string;
   label?: string;
+  onUrlChange?: (url: string) => void;
+  onBusyChange?: (busy: boolean) => void;
+  isValidUrl?: (url: string) => boolean;
+  inputId?: string;
+  invalid?: boolean;
+  describedBy?: string;
 }) {
   const [url, setUrl] = useState(initial),
     [busy, setBusy] = useState(false),
@@ -118,18 +130,22 @@ export function ImageUploadField({
       <label>
         {label} URL
         <input
+          id={inputId}
           name={name}
           value={url}
           onChange={(e) => {
             setUrl(e.target.value);
+            onUrlChange?.(e.target.value);
             markDirty();
           }}
           placeholder="Upload a photo or enter an HTTPS image URL"
           maxLength={2000}
+          aria-invalid={invalid || undefined}
+          aria-describedby={describedBy}
         />
       </label>
       <div className="image-upload-preview">
-        {url ? (
+        {url && (!isValidUrl || isValidUrl(url)) ? (
           <img src={url} alt={`${label} preview`} />
         ) : (
           <ImageIcon size={32} />
@@ -150,6 +166,7 @@ export function ImageUploadField({
                 return;
               }
               setBusy(true);
+              onBusyChange?.(true);
               try {
                 const data = await new Promise<string>((resolve, reject) => {
                   const reader = new FileReader();
@@ -164,11 +181,13 @@ export function ImageUploadField({
                   body: JSON.stringify({ mime: file.type, data }),
                 });
                 setUrl(result.url);
+                onUrlChange?.(result.url);
                 markDirty();
               } catch (e) {
                 setError((e as Error).message);
               } finally {
                 setBusy(false);
+                onBusyChange?.(false);
               }
             }}
           />

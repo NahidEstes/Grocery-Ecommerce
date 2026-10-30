@@ -27,6 +27,7 @@ import {
   SectionTitle,
 } from "./ui";
 import { CheckoutSteps } from "./order-ui";
+import { BROWSER_DEMO } from "@/lib/browser-demo/config";
 
 export function CartPage() {
   const { money } = useStoreFormat();
@@ -284,21 +285,28 @@ export function CartPage() {
                 {t("Proceed to checkout")}
                 <ArrowRight size={19} />
               </Link>
-              <div className="secure-payments">
-                <span>
-                  <LockKeyhole size={13} />
-                  {t("Secure checkout")}
-                </span>
-                <div>
-                  <span className="payment-bkash">bKash</span>
-                  <span className="payment-visa">VISA</span>
-                  <span className="payment-cash">
-                    <CreditCard size={17} />
-                    {t("Cash on delivery")}
+              {BROWSER_DEMO ? (
+                <p className="demo-store-note">
+                  {t("Demo only — no real payment or delivery.")}{" "}
+                  {t("Sales tax is not calculated.")}
+                </p>
+              ) : (
+                <div className="secure-payments">
+                  <span>
+                    <LockKeyhole size={13} />
+                    {t("Secure checkout")}
                   </span>
+                  <div>
+                    <span className="payment-bkash">bKash</span>
+                    <span className="payment-visa">VISA</span>
+                    <span className="payment-cash">
+                      <CreditCard size={17} />
+                      {t("Cash on delivery")}
+                    </span>
+                  </div>
+                  <p>{t("No payment details stored on this device.")}</p>
                 </div>
-                <p>{t("No payment details stored on this device.")}</p>
-              </div>
+              )}
             </aside>
           </div>
           <Link className="continue-shopping" href="/products">

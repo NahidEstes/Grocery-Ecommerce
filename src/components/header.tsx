@@ -25,6 +25,7 @@ import { ListChecks } from "lucide-react";
 import { MiniCart } from "./mini-cart";
 import { isStaff } from "@/lib/management";
 import { LanguageSwitcher } from "./language-provider";
+import { BROWSER_DEMO, demoCity } from "@/lib/browser-demo/config";
 export function Brand() {
   const { t } = useLanguage();
   const {
@@ -94,8 +95,7 @@ export function Header() {
               <small>{t("Deliver to")}</small>
               <strong>
                 {area}
-                {", "}
-                {settings.profile.city}
+                {!BROWSER_DEMO && `, ${settings.profile.city}`}
                 <ChevronDown size={12} />
               </strong>
             </span>
@@ -115,7 +115,13 @@ export function Header() {
                   {user ? user.name.split(" ")[0] : t("My Account")}
                 </strong>
                 <small>
-                  {t(user ? "Your shopping space" : "Sign in / Register")}
+                  {t(
+                    BROWSER_DEMO
+                      ? "Browser demo"
+                      : user
+                        ? "Your shopping space"
+                        : "Sign in / Register",
+                  )}
                 </small>
               </span>
               <ChevronDown size={12} />
@@ -131,16 +137,24 @@ export function Header() {
                   <strong>{t("Make yourself at home")}</strong>
                   <p>
                     {t(
-                      user
-                        ? "Your groceries and orders, together."
-                        : "Sign in to save addresses and orders across devices.",
+                      BROWSER_DEMO
+                        ? "Accounts are disabled. Use the fictional customer at checkout."
+                        : user
+                          ? "Your groceries and orders, together."
+                          : "Sign in to save addresses and orders across devices.",
                     )}
                   </p>
                   <Link href="/account" onClick={() => setAccountOpen(false)}>
                     <UserRound size={17} />
-                    {t(user ? "Manage account" : "Sign in / Create account")}
+                    {t(
+                      BROWSER_DEMO
+                        ? "About this demo"
+                        : user
+                          ? "Manage account"
+                          : "Sign in / Create account",
+                    )}
                   </Link>
-                  {isStaff(user?.role) && (
+                  {(BROWSER_DEMO || isStaff(user?.role)) && (
                     <Link href="/admin" onClick={() => setAccountOpen(false)}>
                       {t("Admin dashboard")}
                     </Link>
@@ -212,8 +226,10 @@ export function Header() {
                   <span>
                     <strong>{t(option)}</strong>
                     <small>
-                      {settings.profile.city} ·{" "}
-                      {t("Delivery slots at checkout")}
+                      {BROWSER_DEMO
+                        ? demoCity(option).timeZone
+                        : settings.profile.city}{" "}
+                      · {t("Delivery slots at checkout")}
                     </small>
                   </span>
                   {area === option && <span className="area-check">✓</span>}

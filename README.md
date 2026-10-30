@@ -2,6 +2,8 @@
 
 Version 1.1.0. A customizable Next.js / Express / MongoDB source-code starter with a credential-free local demo. Existing orange/green design and বাংলা / English storefront are preserved. Phone OTP is intentionally excluded.
 
+For a frontend-only **USA / USD browser demo on Vercel**, see [DEMO-VERCEL.md](DEMO-VERCEL.md). Opt in with `NEXT_PUBLIC_BROWSER_DEMO=true` at build time and run `npm run dev:web` locally. This is separate from `STORE_MODE=demo`, which retains the original Express-backed local demo. The default remains the original backend architecture.
+
 Start with [Buyer quick start](docs/QUICKSTART.md). Copy .env.example to .env, then run npm ci and npm run dev. Default demo URLs are http://127.0.0.1:3000 and internal API 4100. For an optimized demo run npm run build then npm start, retaining explicit STORE_MODE=demo.
 
 ## Included

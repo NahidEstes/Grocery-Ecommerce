@@ -1,0 +1,18 @@
+{
+  "checks": [
+    "1440px: catalog search, combined filters, empty state and pagination",
+    "1440px: guided create, focused validation, upload guard, real upload, pack variants, zero threshold, Bangla source and stock audit persisted",
+    "1440px: unsaved cancellation guard, stale translation review, optimistic version conflict retains draft",
+    "390px: catalog search, combined filters, empty state and pagination",
+    "390px: guided create, focused validation, upload guard, real upload, pack variants, zero threshold, Bangla source and stock audit persisted",
+    "390px: unsaved cancellation guard, stale translation review, optimistic version conflict retains draft",
+    "320px: every product section, touch navigation and Orders fit viewport",
+    "768px: every product section, touch navigation and Orders fit viewport",
+    "editor: existing product permission boundaries retained",
+    "fulfilment: existing product permission boundaries retained",
+    "customer: existing product permission boundaries retained"
+  ],
+  "errors": [],
+  "userDataMutated": false,
+  "backend": "Original Express API, temporary isolated fixture"
+}

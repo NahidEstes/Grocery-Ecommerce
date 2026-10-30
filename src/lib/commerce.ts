@@ -29,7 +29,9 @@ export function cartTotals(
   const discount = promotion
     ? Math.min(
         promotion.maxDiscount,
-        Math.round((subtotal * promotion.percent) / 100),
+        settings.profile.currency === "USD"
+          ? Math.round(subtotal * promotion.percent) / 100
+          : Math.round((subtotal * promotion.percent) / 100),
       )
     : 0;
   const delivery =
@@ -40,8 +42,11 @@ export function cartTotals(
     subtotal,
     discount,
     delivery,
-    total: subtotal - discount + delivery,
-    remaining: Math.max(0, settings.freeDeliveryAt - subtotal),
+    total: Math.round((subtotal - discount + delivery) * 100) / 100,
+    remaining: Math.max(
+      0,
+      Math.round((settings.freeDeliveryAt - subtotal) * 100) / 100,
+    ),
   };
 }
 export function sanitizeCart(input: unknown, catalog: Product[]): CartItem[] {

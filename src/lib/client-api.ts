@@ -1,7 +1,12 @@
+import { BROWSER_DEMO } from "./browser-demo/config";
 export async function api<T = Record<string, unknown>>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (BROWSER_DEMO) {
+    const { demoApi } = await import("./browser-demo/adapter");
+    return demoApi<T>(path, options);
+  }
   const response = await fetch(`/api${path}`, {
     ...options,
     cache: "no-store",

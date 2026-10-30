@@ -27,6 +27,7 @@ const config: NextConfig = {
     ];
   },
   async rewrites() {
+    if (process.env.NEXT_PUBLIC_BROWSER_DEMO === "true") return [];
     return [
       {
         source: "/api/:path*",

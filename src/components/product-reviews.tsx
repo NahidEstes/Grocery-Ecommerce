@@ -8,6 +8,7 @@ import { useAccount } from "./account-provider";
 import { useShop } from "./shop-provider";
 import { api } from "@/lib/client-api";
 import type { Order } from "@/lib/orders";
+import { BROWSER_DEMO } from "@/lib/browser-demo/config";
 export function ProductReviews({ productIds }: { productIds: string[] }) {
   const { t } = useLanguage();
   const { user } = useAccount();
@@ -62,7 +63,9 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
     <section className="product-reviews surface-card">
       <div className="card-title">
         <div>
-          <span className="eyebrow">{t("FROM REAL PURCHASES")}</span>
+          <span className="eyebrow">
+            {t(BROWSER_DEMO ? "Interactive demo" : "FROM REAL PURCHASES")}
+          </span>
           <h2>{t("Customer reviews")}</h2>
         </div>
         <Star size={25} />
@@ -89,7 +92,9 @@ export function ProductReviews({ productIds }: { productIds: string[] }) {
       ) : (
         <p className="quiet-empty">{t("No verified reviews yet.")}</p>
       )}
-      {!user ? (
+      {BROWSER_DEMO ? (
+        <p>{t("Reviews are disabled in the browser demo.")}</p>
+      ) : !user ? (
         <Link className="subtle-link" href="/account">
           {t("Sign in to review a delivered purchase")}
         </Link>

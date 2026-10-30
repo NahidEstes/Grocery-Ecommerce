@@ -83,7 +83,7 @@ export function currencyText(
 ) {
   return currency === "BDT"
     ? `৳ ${value.toLocaleString("en-BD", { maximumFractionDigits: 2 })}`
-    : new Intl.NumberFormat("en", {
+    : new Intl.NumberFormat(currency === "USD" ? "en-US" : "en", {
         style: "currency",
         currency,
         maximumFractionDigits: 2,

@@ -22,6 +22,11 @@ import { useRef } from "react";
 import { usePathname } from "next/navigation";
 import { defaultContent, type ContentConfig } from "@/lib/management";
 import { type Recipe } from "@/lib/recipes";
+import { BROWSER_DEMO, demoKey } from "@/lib/browser-demo/config";
+import { demoSettingsFor } from "@/lib/browser-demo/data";
+import { reportDemoStorageFailure } from "@/lib/browser-demo/storage";
+const storageKey = (key: string) =>
+  BROWSER_DEMO ? demoKey(key) : `freshcart-${key}`;
 
 type ShopState = {
   mode: "demo" | "production";
@@ -85,6 +90,7 @@ export function ShopProvider({
   }
   const [miniCartOpen, setMiniCartOpen] = useState(false);
   async function refreshCatalog() {
+    if (BROWSER_DEMO) return initialCatalog;
     const data = await api<{ products: Product[] }>("/catalog");
     setCatalog(data.products);
     return data.products;
@@ -105,6 +111,7 @@ export function ShopProvider({
   const priorAccount = useRef<string | null>(null);
   const [cartLoadedFor, setCartLoadedFor] = useState<string | null>(null);
   useEffect(() => {
+    if (BROWSER_DEMO) return;
     api<{
       content?: ContentConfig;
       recipes?: Recipe[];
@@ -193,12 +200,12 @@ export function ShopProvider({
     try {
       setItems(
         sanitizeCart(
-          JSON.parse(localStorage.getItem("freshcart-cart") || "[]"),
+          JSON.parse(localStorage.getItem(storageKey("cart")) || "[]"),
           catalog,
         ),
       );
       const storedSaved: unknown = JSON.parse(
-        localStorage.getItem("freshcart-saved") || "[]",
+        localStorage.getItem(storageKey("saved")) || "[]",
       );
       if (Array.isArray(storedSaved))
         setSaved(
@@ -207,8 +214,8 @@ export function ShopProvider({
               typeof id === "string" && catalog.some((p) => p.id === id),
           ),
         );
-      const storedArea = localStorage.getItem("freshcart-area");
-      const storedPromo = localStorage.getItem("freshcart-promo");
+      const storedArea = localStorage.getItem(storageKey("area"));
+      const storedPromo = localStorage.getItem(storageKey("promo"));
       if (storedPromo && /^[A-Z0-9]{3,20}$/.test(storedPromo))
         setPromoCode(storedPromo);
       if (
@@ -224,12 +231,13 @@ export function ShopProvider({
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem("freshcart-cart", JSON.stringify(items));
-      localStorage.setItem("freshcart-saved", JSON.stringify(saved));
-      localStorage.setItem("freshcart-area", area);
-      localStorage.setItem("freshcart-promo", promoCode);
+      localStorage.setItem(storageKey("cart"), JSON.stringify(items));
+      localStorage.setItem(storageKey("saved"), JSON.stringify(saved));
+      localStorage.setItem(storageKey("area"), area);
+      localStorage.setItem(storageKey("promo"), promoCode);
     } catch {
       /* Browsing still works when storage is unavailable. */
+      if (BROWSER_DEMO) reportDemoStorageFailure();
     }
   }, [items, saved, area, ready, promoCode]);
   useEffect(() => {
@@ -328,7 +336,7 @@ export function ShopProvider({
         recipes: recipes.map((r) => localizeEntity("recipe", r, locale)),
         miniCartOpen,
         setMiniCartOpen,
-        settings,
+        settings: BROWSER_DEMO ? demoSettingsFor(area) : settings,
         payments,
         popularIds,
         reviews,
@@ -343,7 +351,13 @@ export function ShopProvider({
         toast,
         promoCode,
         setPromoCode,
-        setArea: updateArea,
+        setArea: (next) => {
+          if (
+            !BROWSER_DEMO ||
+            settings.zones.some((zone) => zone.enabled && zone.name === next)
+          )
+            updateArea(next);
+        },
         setQuantity,
         addItem,
         clearCart: () => {

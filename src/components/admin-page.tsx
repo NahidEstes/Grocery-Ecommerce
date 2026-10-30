@@ -1,100 +1,41 @@
 "use client";
-import { useShop } from "./shop-provider";
 import { useStoreFormat } from "./store-format";
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
+import { AdminShell } from "./admin-shell";
+import { AdminOverview } from "./admin-overview";
+import { AdminOrders } from "./admin-orders";
+import { AdminProductEditor } from "./admin-product-editor";
+import { AdminProducts } from "./admin-products";
 import {
-  BarChart3,
-  Boxes,
+  adminTools,
+  allowedAdminTools,
+  resolveAdminSection,
+  type AdminOverviewData,
+  type AdminSection,
+  type OrderFilters,
+} from "@/lib/admin-workspace";
+import {
   Check,
   ChevronRight,
-  Leaf,
-  MessageSquare,
-  Package,
   Plus,
-  RefreshCw,
   Search,
-  Settings2,
   ShieldCheck,
-  ShoppingBag,
   Trash2,
-  X,
 } from "lucide-react";
 import { useAccount } from "./account-provider";
 import { api } from "@/lib/client-api";
 import type { Product } from "@/lib/catalog";
-import type { StoreSettings, Review, SupportTicket } from "@/lib/storefront";
-import type { Order } from "@/lib/orders";
-import { formatDelivery } from "@/lib/orders";
+import type { StoreSettings } from "@/lib/storefront";
 
-import { ProductImage } from "./ui";
-import { can, isStaff, type Permission } from "@/lib/management";
+import { can, isStaff } from "@/lib/management";
 import { ManagementPanel } from "./admin-management";
-import { OrderOperationsPanel, CaseTools } from "./admin-operations";
-import { UnsavedProvider, useUnsaved, ImageUploadField } from "./admin-shared";
-import { OrderFinancePanel } from "./admin-finance";
+import { CaseTools } from "./admin-operations";
+import { UnsavedProvider, useUnsaved } from "./admin-shared";
+
 import { ProfileFields } from "./admin-profile";
-type Overview = {
-  stockThreshold: number;
-  support: SupportTicket[];
-  products: Product[];
-  orders: Order[];
-  settings: StoreSettings;
-  reviews: Review[];
-  metrics: {
-    orders: number;
-    revenue: number;
-    delivered: number;
-    pending: number;
-    lowStock: number;
-  };
-  storage: string;
-};
-const nextStatuses: Record<string, string[]> = {
-  placed: ["preparing", "cancelled"],
-  preparing: ["out-for-delivery", "cancelled"],
-  "out-for-delivery": ["delivered"],
-  delivered: [],
-  cancelled: [],
-};
-const tabs = [
-  { id: "overview", label: "Overview", icon: BarChart3 },
-  { id: "products", label: "Products & stock", icon: Boxes },
-  { id: "orders", label: "Orders", icon: Package },
-  { id: "storefront", label: "Storefront settings", icon: Settings2 },
-  { id: "reviews", label: "Customer reviews", icon: MessageSquare },
-  { id: "support", label: "Customer support", icon: MessageSquare },
-  { id: "recipes", label: "Recipe management", icon: Leaf },
-  { id: "homepage", label: "Homepage editor", icon: Settings2 },
-  { id: "catalog-tools", label: "Bulk updates & CSV", icon: Boxes },
-  { id: "inventory", label: "Inventory & alerts", icon: Package },
-  { id: "purchasing", label: "Suppliers & batches", icon: Boxes },
-  { id: "languages", label: "English / বাংলা content", icon: Leaf },
-  { id: "reports", label: "Sales & promo reports", icon: BarChart3 },
-  { id: "search", label: "Search & alerts", icon: Search },
-  { id: "returns", label: "Returns & refunds", icon: RefreshCw },
-  { id: "team", label: "Staff & permissions", icon: ShieldCheck },
-  { id: "activity", label: "Activity history", icon: Check },
-];
-const tabPermissions: Record<string, Permission> = {
-  overview: "reports",
-  products: "products",
-  orders: "orders",
-  storefront: "content",
-  reviews: "reviews",
-  support: "support",
-  recipes: "content",
-  homepage: "content",
-  "catalog-tools": "products",
-  inventory: "products",
-  purchasing: "purchasing",
-  languages: "content",
-  reports: "reports",
-  search: "content",
-  returns: "returns",
-  team: "team",
-  activity: "audit",
-};
+type Overview = AdminOverviewData;
 export function AdminPage({ initialSection }: { initialSection?: string }) {
   const { user } = useAccount();
   return (
@@ -107,18 +48,12 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
   const { money, orderTime } = useStoreFormat();
   const { user, ready } = useAccount();
   const { confirmLeave, clean } = useUnsaved();
+  const params = useSearchParams();
+  const requested = params.get("section") || undefined;
+  const tab = resolveAdminSection(requested, user?.role) || "orders";
+  const [orderFilters, setOrderFilters] = useState<Partial<OrderFilters>>({});
+  const [orderViewRevision, setOrderViewRevision] = useState(0);
   const [data, setData] = useState<Overview | null>(null),
-    [tab, setTab] = useState(
-      initialSection &&
-        tabPermissions[initialSection] &&
-        can(user?.role, tabPermissions[initialSection])
-        ? initialSection
-        : can(user?.role, "reports")
-          ? "overview"
-          : can(user?.role, "products")
-            ? "products"
-            : "orders",
-    ),
     [notice, setNotice] = useState(""),
     [panelRevision, setPanelRevision] = useState(0),
     [error, setError] = useState(""),
@@ -140,7 +75,10 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
   useEffect(() => {
     if (isStaff(user?.role)) void load();
   }, [user?.id, user?.role]);
-  async function updateStatus(reference: string, status: string) {
+  async function updateStatus(
+    reference: string,
+    status: import("@/lib/orders").OrderStatus,
+  ) {
     setBusy(true);
     setError("");
     try {
@@ -152,9 +90,36 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
       setNotice(
         "Order status updated. The change was recorded in its history.",
       );
+      return true;
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
+      return false;
+    }
+  }
+  async function navigate(
+    section: AdminSection,
+    filters: Partial<OrderFilters> = {},
+    product?: Product,
+  ) {
+    if (
+      !allowedAdminTools(user?.role).some((tool) => tool.id === section) ||
+      !(await confirmLeave())
+    )
+      return;
+    setOrderFilters(filters);
+    setOrderViewRevision((previous) => previous + 1);
+    setNotice("");
+    setError("");
+    setQuery("");
+    setStatus("");
+    setEditing(product);
+    window.history.pushState(null, "", `/admin?section=${section}`);
+  }
+  async function refreshWorkspace() {
+    if (await confirmLeave()) {
+      setPanelRevision((previous) => previous + 1);
+      await load();
     }
   }
   if (!ready)
@@ -177,979 +142,317 @@ function AdminWorkspace({ initialSection }: { initialSection?: string }) {
       </div>
     );
   return (
-    <div className="admin-shell">
-      <aside className="admin-sidebar">
-        <Link href="/admin" className="admin-brand">
-          <Leaf size={24} /> {data?.settings.profile.name || "Store"}{" "}
-          <small>STORE MANAGER</small>
-        </Link>
-        <nav aria-label="Administration">
-          {tabs
-            .filter((t) => can(user?.role, tabPermissions[t.id]))
-            .map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                className={id === tab ? "active" : ""}
-                onClick={async () => {
-                  if (!(await confirmLeave())) return;
-                  setTab(id);
-                  window.history.replaceState(null, "", `/admin?section=${id}`);
-                  setNotice("");
-                  setQuery("");
-                  setStatus("");
-                  setEditing(undefined);
-                }}
-              >
-                <Icon size={19} />
-                {label}
-                <ChevronRight size={14} />
-              </button>
-            ))}
-        </nav>
-        <div className="admin-person">
-          <span className="round-icon">
-            <ShieldCheck size={19} />
-          </span>
-          <strong>{user!.name}</strong>
-          <small>{user!.role}</small>
-          <Link href="/">Visit storefront ↗</Link>
-        </div>
-      </aside>
-      <section className="admin-content">
-        <header className="admin-heading">
+    <AdminShell
+      active={tab}
+      role={user?.role}
+      name={user!.name}
+      storeName={data?.settings.profile.name || "FreshCart"}
+      busy={busy}
+      onRefresh={() => void refreshWorkspace()}
+      onNavigate={(section) => void navigate(section)}
+      taskCount={(data?.metrics.pending || 0) + (data?.metrics.lowStock || 0)}
+    >
+      {tab !== "overview" && tab !== "orders" && tab !== "products" && (
+        <div className="workspace-page-heading">
           <div>
-            <span className="eyebrow">YOUR STORE, AT A GLANCE</span>
-            <h1>{tabs.find((t) => t.id === tab)?.label}</h1>
-            <p>Good food starts with a well-run store.</p>
+            <span className="eyebrow">YOUR STORE, WELL ORGANIZED</span>
+            <h1>{adminTools.find((tool) => tool.id === tab)?.label}</h1>
+            <p>Your tools and changes, in one focused workspace.</p>
           </div>
-          <button
-            className="button outline"
-            onClick={async () => {
-              if (await confirmLeave()) {
-                setPanelRevision((v) => v + 1);
-                void load();
-              }
-            }}
-            disabled={busy}
+        </div>
+      )}
+      {error && (
+        <p className="form-error admin-alert" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="success-message admin-feedback" role="status">
+          {notice}
+        </p>
+      )}
+      {!data ? (
+        <div className="loading-state">
+          {busy
+            ? "Loading your store…"
+            : "Store data is unavailable. Use Refresh to retry."}
+        </div>
+      ) : (
+        <>
+          {[
+            "recipes",
+            "homepage",
+            "catalog-tools",
+            "inventory",
+            "purchasing",
+            "languages",
+            "reports",
+            "search",
+            "returns",
+            "team",
+            "activity",
+          ].includes(tab) && (
+            <ManagementPanel
+              key={`${tab}-${panelRevision}`}
+              tab={tab}
+              products={data.products}
+              reload={load}
+            />
+          )}
+          <div
+            className={`storage-banner ${data.storage === "demo" ? "demo" : ""}`}
           >
-            <RefreshCw size={16} /> Refresh
-          </button>
-        </header>
-        {error && (
-          <p className="form-error admin-alert" role="alert">
-            {error}
-          </p>
-        )}
-        {notice && (
-          <p className="success-message admin-feedback" role="status">
-            {notice}
-          </p>
-        )}
-        {!data ? (
-          <div className="loading-state">
-            {busy
-              ? "Loading your store…"
-              : "Store data is unavailable. Use Refresh to retry."}
+            <ShieldCheck size={16} />
+            {data.storage === "demo"
+              ? "Local demo data · Orders do not schedule real delivery."
+              : "MongoDB connected"}
+            <span>Configured online payments require server verification.</span>
           </div>
-        ) : (
-          <>
-            {[
-              "recipes",
-              "homepage",
-              "catalog-tools",
-              "inventory",
-              "purchasing",
-              "languages",
-              "reports",
-              "search",
-              "returns",
-              "team",
-              "activity",
-            ].includes(tab) && (
-              <ManagementPanel
-                key={`${tab}-${panelRevision}`}
-                tab={tab}
-                products={data.products}
-                reload={load}
-              />
-            )}
-            <div
-              className={`storage-banner ${data.storage === "demo" ? "demo" : ""}`}
-            >
-              <ShieldCheck size={16} />
-              {data.storage === "demo"
-                ? "Local demo data · Orders do not schedule real delivery."
-                : "MongoDB connected"}
-              <span>Configured online payments require server verification.</span>
-            </div>
-            {tab === "overview" && (
-              <>
-                <div className="metric-grid">
-                  {[
-                    {
-                      label: "All orders",
-                      value: data.metrics.orders,
-                      icon: ShoppingBag,
-                    },
-                    {
-                      label: "Awaiting fulfilment",
-                      value: data.metrics.pending,
-                      icon: Package,
-                    },
-                    {
-                      label: "Delivered revenue",
-                      value: money(data.metrics.revenue),
-                      icon: BarChart3,
-                    },
-                    {
-                      label: "Low-stock products",
-                      value: data.metrics.lowStock,
-                      icon: Boxes,
-                    },
-                  ].map(({ label, value, icon: Icon }) => (
-                    <article className="metric-card" key={label}>
-                      <span className="round-icon">
-                        <Icon size={22} />
-                      </span>
-                      <small>{label}</small>
-                      <strong>{value}</strong>
-                    </article>
-                  ))}
-                </div>
-                <p className="muted">
-                  Revenue includes completed real deliveries; demo and sandbox
-                  orders are excluded.
-                </p>
-                <div className="admin-overview-grid">
-                  <section className="surface-card">
-                    <div className="card-title">
-                      <h2>Latest orders</h2>
-                      <button
-                        className="text-button"
-                        onClick={() => setTab("orders")}
-                      >
-                        View all →
-                      </button>
-                    </div>
-                    {data.orders.slice(0, 5).map((o) => (
-                      <div className="admin-list-row" key={o.reference}>
-                        <span>
-                          <strong>{o.reference}</strong>
-                          <small>
-                            {o.customer.name} · {orderTime(o.createdAt)}
-                          </small>
-                        </span>
-                        <span className={`order-status status-${o.status}`}>
-                          {o.status}
-                        </span>
-                        <b>{money(o.total)}</b>
-                      </div>
-                    ))}
-                    {!data.orders.length && (
-                      <p className="quiet-empty">
-                        Your first order will appear here.
-                      </p>
-                    )}
-                  </section>
-                  <section className="surface-card">
-                    <h2>Stock to keep an eye on</h2>
-                    {data.products
-                      .filter(
-                        (p) =>
-                          p.stock <=
-                            (p.lowStockThreshold ?? data.stockThreshold) &&
-                          p.active !== false,
-                      )
-                      .slice(0, 6)
-                      .map((p) => (
-                        <button
-                          className="admin-stock-row"
-                          key={p.id}
-                          onClick={() => {
-                            setTab("products");
-                            setEditing(p);
-                          }}
-                        >
-                          <ProductImage product={p} />
-                          <span>
-                            <strong>{p.name}</strong>
-                            <small>{p.unit}</small>
-                          </span>
-                          <b>{p.stock} left</b>
-                        </button>
-                      ))}
-                    {!data.metrics.lowStock && (
-                      <p className="quiet-empty">
-                        <Check size={20} /> All active products have healthy
-                        stock.
-                      </p>
-                    )}
-                  </section>
-                </div>
-              </>
-            )}
-            {tab === "products" &&
-              (editing !== undefined ? (
-                <ProductEditor
-                  product={editing}
-                  catalog={data.products}
-                  categories={data.settings.categories}
-                  onCancel={() => setEditing(undefined)}
-                  onSave={async (p) => {
-                    await api(`/admin/products/${p.id}`, {
-                      method: "PUT",
-                      body: JSON.stringify(p),
-                    });
-                    setEditing(undefined);
-                    await load();
-                    clean();
-                    setNotice("Product saved successfully.");
-                  }}
-                />
-              ) : (
-                <>
-                  <div className="admin-toolbar">
-                    <label>
-                      <Search size={17} />
-                      <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Find a product or SKU"
-                        aria-label="Find products"
-                      />
-                    </label>
-                    <button
-                      className="button primary"
-                      onClick={() => setEditing(null)}
-                    >
-                      <Plus size={17} /> Add product
-                    </button>
-                  </div>
-                  <div className="admin-table-wrap">
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Product / SKU</th>
-                          <th>Category</th>
-                          <th>Price</th>
-                          <th>Stock</th>
-                          <th>Status</th>
-                          <th>
-                            <span className="sr-only">Actions</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.products
-                          .filter((p) =>
-                            `${p.name} ${p.id}`
-                              .toLowerCase()
-                              .includes(query.toLowerCase()),
-                          )
-                          .map((p) => (
-                            <tr key={p.id}>
-                              <td>
-                                <div className="admin-product-cell">
-                                  <ProductImage product={p} />
-                                  <span>
-                                    <strong>{p.name}</strong>
-                                    <small>
-                                      {p.unit} · {p.id}
-                                      {p.parentId ? " · Variant" : ""}
-                                    </small>
-                                  </span>
-                                </div>
-                              </td>
-                              <td>{p.category}</td>
-                              <td>{money(p.price)}</td>
-                              <td>
-                                <span
-                                  className={
-                                    p.stock <=
-                                    (p.lowStockThreshold ?? data.stockThreshold)
-                                      ? "low-stock"
-                                      : ""
-                                  }
-                                >
-                                  {p.stock}
-                                </span>
-                              </td>
-                              <td>
-                                {p.active === false ? "Hidden" : "Active"}
-                              </td>
-                              <td>
-                                <button
-                                  className="button outline small"
-                                  onClick={() => setEditing(p)}
-                                >
-                                  Edit
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              ))}
-            {tab === "orders" && (
-              <>
-                <div className="admin-toolbar">
-                  <label>
-                    <Search size={17} />
-                    <input
-                      placeholder="Search order or customer"
-                      aria-label="Search orders"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                    />
-                  </label>
-                  <select
-                    aria-label="Filter order status"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="">All statuses</option>
-                    {Object.keys(nextStatuses).map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="admin-order-list">
-                  {data.orders
-                    .filter(
-                      (o) =>
-                        (!status || o.status === status) &&
-                        `${o.reference} ${o.customer.name} ${o.customer.phone}`
-                          .toLowerCase()
-                          .includes(query.toLowerCase()),
-                    )
-                    .map((o) => (
-                      <article className="surface-card" key={o.reference}>
-                        <div className="card-title">
-                          <div>
-                            <Link href={`/orders/${o.reference}`}>
-                              <strong>#{o.reference}</strong>
-                            </Link>
-                            <p>
-                              {orderTime(o.createdAt)} ·{" "}
-                              {o.mode === "demo"
-                                ? "Demo order"
-                                : o.sandbox
-                                  ? "Sandbox payment"
-                                  : "Customer order"}
-                            </p>
-                          </div>
-                          <span className={`order-status status-${o.status}`}>
-                            {o.status}
-                          </span>
-                        </div>
-                        <div className="admin-order-details">
-                          <div>
-                            <strong>{o.customer.name}</strong>
-                            <p>{o.customer.phone}</p>
-                            <p>
-                              {o.customer.address}, {o.customer.area}
-                            </p>
-                            <small>{formatDelivery(o.deliverySelection)}</small>
-                            {o.instructions && <p>Note: {o.instructions}</p>}
-                          </div>
-                          <div>
-                            {o.items.map((i) => (
-                              <p key={i.productId}>
-                                {i.quantity} × {i.name}{" "}
-                                <small>({i.unit})</small>{" "}
-                                <b>{money(i.price * i.quantity)}</b>
-                              </p>
-                            ))}
-                            <strong>Total {money(o.total)}</strong>
-                            <p>
-                              {o.payment === "online"
-                                ? `Online · ${o.paymentStatus}`
-                                : "Cash on delivery"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="inline-actions">
-                          {nextStatuses[o.status].map((s) => (
-                            <button
-                              key={s}
-                              className={`button ${s === "cancelled" ? "outline" : "primary"} small`}
-                              disabled={busy}
-                              onClick={() => updateStatus(o.reference, s)}
-                            >
-                              {s === "cancelled"
-                                ? "Cancel & restore stock"
-                                : `Mark ${s.replaceAll("-", " ")}`}
-                            </button>
-                          ))}
-                        </div>
-                        <OrderOperationsPanel reference={o.reference} />
-                        {can(user?.role, "finance") && (
-                          <OrderFinancePanel
-                            reference={o.reference}
-                            onChange={() => {
-                              void load();
-                            }}
-                          />
-                        )}
-                      </article>
-                    ))}
-                </div>
-              </>
-            )}
-            {tab === "storefront" && (
-              <SettingsEditor
-                key={JSON.stringify(data.settings)}
-                initial={data.settings}
-                products={data.products}
-                onSave={async (settings) => {
-                  await api("/admin/settings", {
+          {tab === "overview" && (
+            <AdminOverview
+              data={data}
+              role={user?.role}
+              name={user!.name}
+              navigate={(section, filters, product) =>
+                void navigate(section, filters, product)
+              }
+              revision={panelRevision}
+            />
+          )}
+          {tab === "products" &&
+            (editing !== undefined ? (
+              <AdminProductEditor
+                product={editing}
+                catalog={data.products}
+                settings={data.settings}
+                onCancel={() => setEditing(undefined)}
+                onSave={async (p) => {
+                  await api(`/admin/products/${p.id}`, {
                     method: "PUT",
-                    body: JSON.stringify(settings),
+                    body: JSON.stringify(p),
                   });
+                  setEditing(undefined);
                   await load();
                   clean();
-                  setNotice("Storefront settings saved.");
+                  setNotice("Product saved successfully.");
                 }}
               />
-            )}
-            {tab === "support" && (
-              <div className="admin-order-list">
-                <div className="surface-card management-toolbar">
-                  <input
-                    aria-label="Search support requests"
-                    placeholder="Order, name or message…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  <select
-                    aria-label="Support status filter"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="">All statuses</option>
-                    <option value="open">Open</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-                {!data.support.length && (
-                  <div className="surface-card quiet-empty">
-                    No support requests yet.
-                  </div>
-                )}
-                {data.support
-                  .filter(
-                    (ticket) =>
-                      (!status || ticket.status === status) &&
-                      `${ticket.reference} ${ticket.name} ${ticket.message}`
-                        .toLowerCase()
-                        .includes(query.toLowerCase()),
-                  )
-                  .map((ticket) => (
-                    <article className="surface-card" key={ticket.id}>
-                      <div className="card-title">
-                        <strong>
-                          {ticket.reference} · {ticket.name}
-                        </strong>
-                        <span className="filter-chip">{ticket.status}</span>
-                      </div>
-                      <p>{ticket.message}</p>
-                      <small>{orderTime(ticket.createdAt)}</small>
-                      <CaseTools
-                        kind="support"
-                        id={ticket.id}
-                        createdAt={ticket.createdAt}
-                        status={ticket.status}
-                      />
-                      <div className="inline-actions">
-                        <button
-                          className="button outline small"
-                          disabled={busy}
-                          onClick={async () => {
-                            setBusy(true);
-                            try {
-                              await api(`/admin/support/${ticket.id}`, {
-                                method: "PATCH",
-                                body: JSON.stringify({
-                                  status:
-                                    ticket.status === "open"
-                                      ? "resolved"
-                                      : "open",
-                                }),
-                              });
-                              await load();
-                            } catch (e) {
-                              setError((e as Error).message);
-                              setBusy(false);
-                            }
-                          }}
-                        >
-                          {ticket.status === "open"
-                            ? "Mark resolved"
-                            : "Reopen request"}
-                        </button>
-                        <Link
-                          className="button outline small"
-                          href={`/orders/${ticket.reference}`}
-                        >
-                          View order
-                        </Link>
-                      </div>
-                    </article>
-                  ))}
-              </div>
-            )}
-            {tab === "reviews" && (
-              <div className="admin-order-list">
-                <div className="surface-card management-toolbar">
-                  <input
-                    aria-label="Search customer reviews"
-                    placeholder="Product, author or review…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                  />
-                  <select
-                    aria-label="Review status filter"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="">All statuses</option>
-                    {["pending", "approved", "rejected"].map((s) => (
-                      <option key={s}>{s}</option>
-                    ))}
-                  </select>
-                </div>
-                {!data.reviews.length && (
-                  <div className="surface-card quiet-empty">
-                    No customer reviews to moderate yet.
-                  </div>
-                )}
-                {data.reviews
-                  .filter(
-                    (r) =>
-                      (!status || r.status === status) &&
-                      `${r.productId} ${r.author} ${r.text}`
-                        .toLowerCase()
-                        .includes(query.toLowerCase()),
-                  )
-                  .map((r) => (
-                    <article className="surface-card" key={r.id}>
-                      <div className="card-title">
-                        <strong>
-                          {data.products.find((p) => p.id === r.productId)
-                            ?.name || r.productId}
-                        </strong>
-                        <span className="filter-chip">{r.status}</span>
-                      </div>
-                      <span className="review-stars">
-                        {"★".repeat(r.rating)}
-                      </span>
-                      <p>{r.text}</p>
-                      <CaseTools
-                        kind="review"
-                        id={r.id}
-                        createdAt={r.createdAt}
-                        status={r.status}
-                      />
-                      <small>
-                        {r.author} · Verified purchase · {r.reference}
-                      </small>
-                      <div className="inline-actions">
-                        {["approved", "rejected", "pending"]
-                          .filter((s) => s !== r.status)
-                          .map((s) => (
-                            <button
-                              className="button outline small"
-                              key={s}
-                              disabled={busy}
-                              onClick={async () => {
-                                setBusy(true);
-                                try {
-                                  await api(`/admin/reviews/${r.id}`, {
-                                    method: "PATCH",
-                                    body: JSON.stringify({ status: s }),
-                                  });
-                                  await load();
-                                } catch (e) {
-                                  setError((e as Error).message);
-                                  setBusy(false);
-                                }
-                              }}
-                            >
-                              {s === "approved"
-                                ? "Publish"
-                                : s === "rejected"
-                                  ? "Reject"
-                                  : "Move to pending"}
-                            </button>
-                          ))}
-                      </div>
-                    </article>
-                  ))}
-              </div>
-            )}
-          </>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function ProductEditor({
-  product,
-  catalog,
-  categories,
-  onCancel,
-  onSave,
-}: {
-  product: Product | null;
-  catalog: Product[];
-  categories: StoreSettings["categories"];
-  onCancel: () => void;
-  onSave: (p: Product) => Promise<void>;
-}) {
-  const { markDirty, clean, confirmLeave } = useUnsaved();
-  useEffect(() => () => clean(), []);
-  const [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
-  async function submit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const text = (key: string) => String(form.get(key) || "").trim();
-    const price = Number(form.get("price"));
-    const p: Product = {
-      id: text("id"),
-      slug: text("slug"),
-      name: text("name"),
-      category: text("category"),
-      unit: text("unit"),
-      price,
-      atlas: Number(form.get("atlas")),
-      stock: Number(form.get("stock")),
-      ...(text("lowStockThreshold")
-        ? { lowStockThreshold: Number(text("lowStockThreshold")) }
-        : {}),
-      searchTerms: text("searchTerms")
-        .split(",")
-        .map((v) => v.trim())
-        .filter(Boolean),
-      description: text("description"),
-      version: product?.version || 0,
-      rating: 0,
-      brand: text("brand"),
-      dietary: text("dietary")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      origin: text("origin"),
-      nutrition: text("nutrition"),
-      allergens: text("allergens"),
-      storage: text("storage"),
-      imageUrl: text("imageUrl"),
-      seasonal: form.has("seasonal"),
-      organic: form.has("organic"),
-      active: form.has("active"),
-      ...(text("originalPrice")
-        ? { originalPrice: Number(text("originalPrice")) }
-        : {}),
-      ...(text("parentId") ? { parentId: text("parentId") } : {}),
-      ...(text("measure")
-        ? {
-            measure: Number(text("measure")),
-            measureUnit: text("measureUnit") as Product["measureUnit"],
-          }
-        : {}),
-    };
-    setBusy(true);
-    setError("");
-    try {
-      const payload = { ...p, changeReason: text("changeReason") };
-      if (form.get("imageUrl-uploading") === "true")
-        throw new Error("Wait for the image upload to finish before saving.");
-      await onSave(payload);
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="surface-card">
-      <div className="card-title">
-        <div>
-          <h2>{product ? "Edit product" : "Add a fresh find"}</h2>
-          <p>Each pack size is a SKU with its own price and stock.</p>
-        </div>
-        <button
-          className="icon-button"
-          aria-label="Close product editor"
-          onClick={async () => {
-            if (await confirmLeave()) onCancel();
-          }}
-        >
-          <X />
-        </button>
-      </div>
-      <form className="enhance-form" onSubmit={submit} onChange={markDirty}>
-        <div className="form-grid">
-          {[
-            { key: "id", label: "SKU / product ID", required: true },
-            { key: "slug", label: "Product URL slug", required: true },
-            { key: "name", label: "Product name", required: true },
-            { key: "unit", label: "Pack label (e.g. 500 g)", required: true },
-            { key: "brand", label: "Brand (leave blank if unknown)" },
-          ].map((f) => (
-            <label key={f.key}>
-              {f.label}
-              <input
-                name={f.key}
-                defaultValue={String(product?.[f.key as keyof Product] || "")}
-                required={f.required}
-                readOnly={f.key === "id" && !!product}
-                pattern={
-                  ["id", "slug"].includes(f.key)
-                    ? "[a-z0-9]+(-[a-z0-9]+)*"
-                    : undefined
-                }
-                maxLength={f.key === "name" ? 120 : 80}
+            ) : (
+              <AdminProducts
+                products={data.products}
+                settings={data.settings}
+                threshold={data.stockThreshold}
+                edit={setEditing}
+                bulk={() => void navigate("catalog-tools")}
               />
-            </label>
-          ))}
-          <label>
-            Category
-            <select
-              name="category"
-              defaultValue={product?.category || categories[0]?.slug}
-            >
-              {[
-                ...new Map(
-                  [
-                    ...categories,
-                    ...(product
-                      ? [
-                          {
-                            slug: product.category,
-                            name: product.category,
-                            atlas: 0,
-                          },
-                        ]
-                      : []),
-                  ].map((c) => [c.slug, c]),
-                ).values(),
-              ].map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Variant of
-            <select name="parentId" defaultValue={product?.parentId || ""}>
-              <option value="">Base product</option>
-              {catalog
-                .filter((p) => !p.parentId && p.id !== product?.id)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
+            ))}
+          {tab === "orders" && (
+            <AdminOrders
+              key={orderViewRevision}
+              orders={data.orders}
+              settings={data.settings}
+              role={user!.role}
+              initialFilters={orderFilters}
+              busy={busy}
+              error={error}
+              updateStatus={updateStatus}
+              refresh={() => void load()}
+            />
+          )}
+          {tab === "storefront" && (
+            <SettingsEditor
+              key={JSON.stringify(data.settings)}
+              initial={data.settings}
+              products={data.products}
+              onSave={async (settings) => {
+                await api("/admin/settings", {
+                  method: "PUT",
+                  body: JSON.stringify(settings),
+                });
+                await load();
+                clean();
+                setNotice("Storefront settings saved.");
+              }}
+            />
+          )}
+          {tab === "support" && (
+            <div className="admin-order-list">
+              <div className="surface-card management-toolbar">
+                <input
+                  aria-label="Search support requests"
+                  placeholder="Order, name or message…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select
+                  aria-label="Support status filter"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">All statuses</option>
+                  <option value="open">Open</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+              </div>
+              {!data.support.length && (
+                <div className="surface-card quiet-empty">
+                  No support requests yet.
+                </div>
+              )}
+              {data.support
+                .filter(
+                  (ticket) =>
+                    (!status || ticket.status === status) &&
+                    `${ticket.reference} ${ticket.name} ${ticket.message}`
+                      .toLowerCase()
+                      .includes(query.toLowerCase()),
+                )
+                .map((ticket) => (
+                  <article className="surface-card" key={ticket.id}>
+                    <div className="card-title">
+                      <strong>
+                        {ticket.reference} · {ticket.name}
+                      </strong>
+                      <span className="filter-chip">{ticket.status}</span>
+                    </div>
+                    <p>{ticket.message}</p>
+                    <small>{orderTime(ticket.createdAt)}</small>
+                    <CaseTools
+                      kind="support"
+                      id={ticket.id}
+                      createdAt={ticket.createdAt}
+                      status={ticket.status}
+                    />
+                    <div className="inline-actions">
+                      <button
+                        className="button outline small"
+                        disabled={busy}
+                        onClick={async () => {
+                          setBusy(true);
+                          try {
+                            await api(`/admin/support/${ticket.id}`, {
+                              method: "PATCH",
+                              body: JSON.stringify({
+                                status:
+                                  ticket.status === "open"
+                                    ? "resolved"
+                                    : "open",
+                              }),
+                            });
+                            await load();
+                          } catch (e) {
+                            setError((e as Error).message);
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        {ticket.status === "open"
+                          ? "Mark resolved"
+                          : "Reopen request"}
+                      </button>
+                      <Link
+                        className="button outline small"
+                        href={`/orders/${ticket.reference}`}
+                      >
+                        View order
+                      </Link>
+                    </div>
+                  </article>
                 ))}
-            </select>
-          </label>
-          {[
-            {
-              key: "price",
-              label: "Selling price",
-              min: 0.01,
-              required: true,
-            },
-            {
-              key: "originalPrice",
-              label: "Original price (optional)",
-              min: 0.01,
-            },
-            { key: "stock", label: "Stock in packs", min: 0, required: true },
-            {
-              key: "measure",
-              label: "Amount per pack (e.g. 0.5 kg)",
-              min: 0.001,
-            },
-          ].map((f) => (
-            <label key={f.key}>
-              {f.label}
-              <input
-                type="number"
-                name={f.key}
-                step={
-                  f.key === "stock"
-                    ? "1"
-                    : f.key === "measure"
-                      ? "0.001"
-                      : "0.01"
-                }
-                min={f.min}
-                max={f.key === "stock" ? 100000 : 500000}
-                required={f.required}
-                defaultValue={
-                  product?.[f.key as keyof Product] as number | undefined
-                }
-              />
-            </label>
-          ))}
-          <label>
-            Unit for comparison
-            <select
-              name="measureUnit"
-              defaultValue={product?.measureUnit || "kg"}
-            >
-              <option value="kg">Kilogram</option>
-              <option value="litre">Litre</option>
-              <option value="piece">Piece</option>
-            </select>
-          </label>
-          <label>
-            Dietary tags (comma separated)
-            <input
-              name="dietary"
-              defaultValue={product?.dietary?.join(", ")}
-              maxLength={320}
-            />
-          </label>
-          <label>
-            Stock alert threshold (optional)
-            <input
-              name="lowStockThreshold"
-              type="number"
-              step={1}
-              min={0}
-              max={100000}
-              defaultValue={product?.lowStockThreshold}
-              placeholder="Use store default"
-            />
-          </label>
-          <label>
-            Search alternatives (comma separated)
-            <input
-              name="searchTerms"
-              maxLength={1000}
-              defaultValue={product?.searchTerms?.join(", ")}
-              placeholder="Local names or alternative spellings"
-            />
-          </label>
-          <label>
-            Reason for stock change
-            <input
-              name="changeReason"
-              minLength={3}
-              maxLength={200}
-              placeholder="e.g. Supplier delivery received"
-            />
-          </label>
-          <label>
-            Country / region of origin
-            <input
-              name="origin"
-              defaultValue={product?.origin}
-              maxLength={150}
-            />
-          </label>
-          <ImageUploadField initial={product?.imageUrl} />
-          <label>
-            Bundled photo fallback
-            <select name="atlas" defaultValue={product?.atlas || 0}>
-              {[
-                "Banana",
-                "Apple",
-                "Tomato",
-                "Carrot",
-                "Broccoli",
-                "Orange",
-                "Cucumber",
-                "Potato",
-                "Milk",
-                "Bread",
-                "Eggs",
-                "Oil",
-              ].map((n, i) => (
-                <option key={i} value={i}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        {[
-          { key: "description", label: "Description", max: 2000 },
-          {
-            key: "nutrition",
-            label: "Supplier nutrition information",
-            max: 1500,
-          },
-          { key: "allergens", label: "Allergen information", max: 1000 },
-          { key: "storage", label: "Storage instructions", max: 1000 },
-        ].map((f) => (
-          <label key={f.key}>
-            {f.label}
-            <textarea
-              name={f.key}
-              defaultValue={(product?.[f.key as keyof Product] as string) || ""}
-              maxLength={f.max}
-              rows={3}
-            />
-          </label>
-        ))}
-        <div className="checkbox-row">
-          {[
-            {
-              key: "active",
-              label: "Visible in store",
-              checked: product?.active !== false,
-            },
-            {
-              key: "seasonal",
-              label: "Feature as seasonal",
-              checked: product?.seasonal,
-            },
-            {
-              key: "organic",
-              label: "Verified organic",
-              checked: product?.organic,
-            },
-          ].map((f) => (
-            <label key={f.key}>
-              <input type="checkbox" name={f.key} defaultChecked={f.checked} />
-              {f.label}
-            </label>
-          ))}
-        </div>
-        <p className="muted">
-          Enter supplier facts only. Leave unknown nutrition, origin and
-          allergen details empty.
-        </p>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="inline-actions">
-          <button className="button primary" disabled={busy}>
-            {busy ? "Saving…" : "Save product"}
-          </button>
-          <button
-            type="button"
-            className="button outline"
-            onClick={async () => {
-              if (await confirmLeave()) onCancel();
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      </form>
-    </section>
+            </div>
+          )}
+          {tab === "reviews" && (
+            <div className="admin-order-list">
+              <div className="surface-card management-toolbar">
+                <input
+                  aria-label="Search customer reviews"
+                  placeholder="Product, author or review…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select
+                  aria-label="Review status filter"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="">All statuses</option>
+                  {["pending", "approved", "rejected"].map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              {!data.reviews.length && (
+                <div className="surface-card quiet-empty">
+                  No customer reviews to moderate yet.
+                </div>
+              )}
+              {data.reviews
+                .filter(
+                  (r) =>
+                    (!status || r.status === status) &&
+                    `${r.productId} ${r.author} ${r.text}`
+                      .toLowerCase()
+                      .includes(query.toLowerCase()),
+                )
+                .map((r) => (
+                  <article className="surface-card" key={r.id}>
+                    <div className="card-title">
+                      <strong>
+                        {data.products.find((p) => p.id === r.productId)
+                          ?.name || r.productId}
+                      </strong>
+                      <span className="filter-chip">{r.status}</span>
+                    </div>
+                    <span className="review-stars">{"★".repeat(r.rating)}</span>
+                    <p>{r.text}</p>
+                    <CaseTools
+                      kind="review"
+                      id={r.id}
+                      createdAt={r.createdAt}
+                      status={r.status}
+                    />
+                    <small>
+                      {r.author} · Verified purchase · {r.reference}
+                    </small>
+                    <div className="inline-actions">
+                      {["approved", "rejected", "pending"]
+                        .filter((s) => s !== r.status)
+                        .map((s) => (
+                          <button
+                            className="button outline small"
+                            key={s}
+                            disabled={busy}
+                            onClick={async () => {
+                              setBusy(true);
+                              try {
+                                await api(`/admin/reviews/${r.id}`, {
+                                  method: "PATCH",
+                                  body: JSON.stringify({ status: s }),
+                                });
+                                await load();
+                              } catch (e) {
+                                setError((e as Error).message);
+                                setBusy(false);
+                              }
+                            }}
+                          >
+                            {s === "approved"
+                              ? "Publish"
+                              : s === "rejected"
+                                ? "Reject"
+                                : "Move to pending"}
+                          </button>
+                        ))}
+                    </div>
+                  </article>
+                ))}
+            </div>
+          )}
+        </>
+      )}
+    </AdminShell>
   );
 }
-
 function SettingsEditor({
   initial,
   products,

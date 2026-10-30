@@ -1,0 +1,243 @@
+.browser-demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px max(20px, calc((100vw - 1280px) / 2));
+  background: #eaf3e8;
+  color: #174d2a;
+  border-bottom: 1px solid #c6ddc1;
+  font-size: 13px;
+}
+.demo-city-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.demo-city-picker select {
+  font: inherit;
+  color: #174d2a;
+  background: white;
+  border: 1px solid #c6ddc1;
+  border-radius: 6px;
+  min-height: 34px;
+  max-width: 180px;
+  padding: 4px 8px;
+}
+.browser-demo-banner > div {
+  display: grid;
+  gap: 4px;
+}
+.browser-demo-banner nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+}
+.browser-demo-banner a,
+.browser-demo-banner button {
+  text-decoration: underline;
+  font: inherit;
+  color: inherit;
+}
+.browser-demo-banner button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 6px 0;
+}
+.browser-demo-banner p {
+  width: 100%;
+  margin: 0;
+  color: #843d13;
+}
+.demo-panel {
+  padding: 26px;
+  margin-bottom: 22px;
+}
+.demo-panel h1,
+.demo-panel h2,
+.demo-panel h3 {
+  margin: 0 0 14px;
+}
+.demo-panel p {
+  line-height: 1.7;
+  color: #526151;
+  margin: 10px 0 18px;
+}
+.demo-panel > .button {
+  margin: 6px 10px 0 0;
+}
+.demo-checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.demo-checkout-grid > * {
+  min-width: 0;
+}
+.demo-checkout-grid .form-grid {
+  margin: 14px 0;
+}
+.demo-checkout-grid input,
+.demo-checkout-grid select {
+  max-width: 100%;
+}
+.demo-checkout-grid input[readonly] {
+  background: #f1f4ef;
+}
+.demo-slots {
+  display: grid;
+  gap: 10px;
+}
+.demo-slots fieldset {
+  border: 1px solid #dce4d7;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+}
+.demo-slots legend {
+  font-size: 13px;
+  padding: 0 7px;
+}
+.demo-slots label,
+.demo-agreement {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.demo-slots input,
+.demo-agreement input {
+  width: 18px !important;
+  height: 18px;
+  flex-shrink: 0;
+}
+.demo-agreement {
+  margin: 20px 0;
+}
+.demo-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #edf0e9;
+}
+.demo-summary-item > .product-image {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+}
+.demo-summary-item > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.demo-summary-item p {
+  font-size: 12px;
+  margin: 4px 0;
+}
+.demo-receipt-line {
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-bottom: 1px solid #edf0e9;
+}
+.demo-receipt-line strong {
+  white-space: nowrap;
+}
+.demo-reference {
+  overflow-wrap: anywhere;
+  font-size: 20px;
+}
+.demo-admin-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.demo-admin .browser-demo-banner {
+  padding: 16px;
+  border-radius: 12px;
+}
+.demo-admin-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+}
+.demo-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.demo-table-scroll {
+  overflow: auto;
+}
+.demo-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+.demo-table td,
+.demo-table th {
+  padding: 14px 12px;
+  border-bottom: 1px solid #e4ebdf;
+  vertical-align: top;
+}
+.demo-table th {
+  background: #f4f7f0;
+}
+.demo-table small {
+  display: block;
+  margin-top: 6px;
+  color: #657260;
+  font-size: 12px;
+}
+.demo-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 165px;
+}
+.demo-product-cell > .product-image {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .browser-demo-banner {
+    padding: 12px 16px;
+    font-size: 12px;
+  }
+  .demo-checkout-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .demo-panel {
+    padding: 18px;
+  }
+  .demo-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .demo-admin-heading {
+    align-items: start;
+    flex-direction: column;
+  }
+  .demo-admin-tabs .button {
+    padding: 10px 14px;
+  }
+  .demo-checkout-grid .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .demo-reference {
+    font-size: 17px;
+  }
+  .demo-summary-item {
+    font-size: 13px;
+  }
+}

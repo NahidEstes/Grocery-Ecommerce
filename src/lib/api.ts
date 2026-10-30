@@ -1,13 +1,19 @@
-import { products, type Product } from "./catalog";
+import { type Product } from "./catalog";
 import { type Recipe } from "./recipes";
 import { defaultContent, type ContentConfig } from "./management";
-import { defaultSettings, type StoreSettings } from "./storefront";
+import { type StoreSettings } from "./storefront";
+import { BROWSER_DEMO } from "./browser-demo/config";
+import { unstable_rethrow } from "next/navigation";
 export async function loadStorefront(): Promise<{
   content: ContentConfig;
   recipes: Recipe[];
   settings: StoreSettings;
   mode: "demo" | "production";
 }> {
+  if (BROWSER_DEMO) {
+    const { demoApi } = await import("./browser-demo/adapter");
+    return demoApi("/storefront");
+  }
   try {
     const response = await fetch(
       `${process.env.API_URL || "http://127.0.0.1:4100"}/api/storefront`,
@@ -30,22 +36,14 @@ export async function loadStorefront(): Promise<{
       recipes: Array.isArray(data.recipes) ? data.recipes : [],
     };
   } catch (error) {
-    if (
-      process.env.STORE_MODE === "production" ||
-      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
-    )
-      throw new Error("Store service unavailable. Please try again shortly.", {
-        cause: error,
-      });
-    return {
-      content: defaultContent,
-      recipes: [],
-      settings: defaultSettings,
-      mode: "demo",
-    };
+    unstable_rethrow(error);
+    throw new Error("Store service unavailable. Please try again shortly.", {
+      cause: error,
+    });
   }
 }
 export async function loadRecipes(): Promise<Recipe[]> {
+  if (BROWSER_DEMO) return (await import("./browser-demo/data")).demoRecipes;
   try {
     const response = await fetch(
       `${process.env.API_URL || "http://127.0.0.1:4100"}/api/recipes`,
@@ -59,17 +57,14 @@ export async function loadRecipes(): Promise<Recipe[]> {
     const data = await response.json();
     return data.recipes;
   } catch (error) {
-    if (
-      process.env.STORE_MODE === "production" ||
-      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
-    )
-      throw new Error("Store service unavailable. Please try again shortly.", {
-        cause: error,
-      });
-    return [];
+    unstable_rethrow(error);
+    throw new Error("Store service unavailable. Please try again shortly.", {
+      cause: error,
+    });
   }
 }
 export async function loadCatalog(): Promise<Product[]> {
+  if (BROWSER_DEMO) return (await import("./browser-demo/data")).demoProducts;
   try {
     const response = await fetch(
       `${process.env.API_URL || "http://127.0.0.1:4100"}/api/catalog`,
@@ -93,14 +88,9 @@ export async function loadCatalog(): Promise<Product[]> {
       throw new Error("Invalid catalog response");
     return data.products;
   } catch (error) {
-    if (
-      process.env.STORE_MODE === "production" ||
-      (process.env.NODE_ENV === "production" && !process.env.STORE_MODE)
-    )
-      throw new Error("Store catalog unavailable. Please try again shortly.", {
-        cause: error,
-      });
-    // The bundled catalog also lets the web app build and preview independently.
-    return products;
+    unstable_rethrow(error);
+    throw new Error("Store catalog unavailable. Please try again shortly.", {
+      cause: error,
+    });
   }
 }
